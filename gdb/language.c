@@ -103,6 +103,7 @@ static const struct language_defn *languages[] = {
   &rust_language_defn,
   &minimal_language_defn,
   &ada_language_defn,
+  &zig_language_defn,
 };
 
 /* The current values of the "set language/type/range" enum
