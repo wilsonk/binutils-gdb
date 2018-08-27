@@ -541,17 +541,12 @@ ada_unqualified_name (const char *decoded_name)
   return result;
 }
 
-/* Return a string starting with '<', followed by STR, and '>'.
-   The result is good until the next call.  */
+/* Return a string starting with '<', followed by STR, and '>'.  */
 
-static char *
+static std::string
 add_angle_brackets (const char *str)
 {
-  static char *result = NULL;
-
-  xfree (result);
-  result = xstrprintf ("<%s>", str);
-  return result;
+  return string_printf ("<%s>", str);
 }
 
 static const char *
@@ -4041,7 +4036,7 @@ get_selections (int *choices, int n_choices, int max_results,
   if (prompt == NULL)
     prompt = "> ";
 
-  args = command_line_input (prompt, 0, annotation_suffix);
+  args = command_line_input (prompt, annotation_suffix);
 
   if (args == NULL)
     error_no_arg (_("one or more choice numbers"));
