@@ -2069,7 +2069,9 @@ enum bfd_architecture
 #define bfd_mach_mips5                 5
 #define bfd_mach_mips_loongson_2e      3001
 #define bfd_mach_mips_loongson_2f      3002
-#define bfd_mach_mips_loongson_3a      3003
+#define bfd_mach_mips_gs464            3003
+#define bfd_mach_mips_gs464e           3004
+#define bfd_mach_mips_gs264e           3005
 #define bfd_mach_mips_sb1              12310201 /* octal 'SB', 01.  */
 #define bfd_mach_mips_octeon           6501
 #define bfd_mach_mips_octeonp          6601
@@ -3434,6 +3436,12 @@ instruction.  */
   BFD_RELOC_PPC64_PLTGOT16_LO_DS,
   BFD_RELOC_PPC64_ADDR16_HIGH,
   BFD_RELOC_PPC64_ADDR16_HIGHA,
+  BFD_RELOC_PPC64_REL16_HIGH,
+  BFD_RELOC_PPC64_REL16_HIGHA,
+  BFD_RELOC_PPC64_REL16_HIGHER,
+  BFD_RELOC_PPC64_REL16_HIGHERA,
+  BFD_RELOC_PPC64_REL16_HIGHEST,
+  BFD_RELOC_PPC64_REL16_HIGHESTA,
   BFD_RELOC_PPC64_ADDR64_LOCAL,
   BFD_RELOC_PPC64_ENTRY,
   BFD_RELOC_PPC64_REL24_NOTOC,

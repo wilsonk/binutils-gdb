@@ -3404,7 +3404,9 @@ get_machine_flags (Filedata * filedata, unsigned e_flags, unsigned e_machine)
 	    case E_MIPS_MACH_9000: strcat (buf, ", 9000"); break;
   	    case E_MIPS_MACH_LS2E: strcat (buf, ", loongson-2e"); break;
   	    case E_MIPS_MACH_LS2F: strcat (buf, ", loongson-2f"); break;
-  	    case E_MIPS_MACH_LS3A: strcat (buf, ", loongson-3a"); break;
+	    case E_MIPS_MACH_GS464: strcat (buf, ", gs464"); break;
+	    case E_MIPS_MACH_GS464E: strcat (buf, ", gs464e"); break;
+	    case E_MIPS_MACH_GS264E: strcat (buf, ", gs264e"); break;
 	    case E_MIPS_MACH_OCTEON: strcat (buf, ", octeon"); break;
 	    case E_MIPS_MACH_OCTEON2: strcat (buf, ", octeon2"); break;
 	    case E_MIPS_MACH_OCTEON3: strcat (buf, ", octeon3"); break;
@@ -6357,6 +6359,8 @@ process_section_headers (Filedata * filedata)
 		  && filedata->section_headers[section->sh_info].sh_type != SHT_NOBITS
 		  && filedata->section_headers[section->sh_info].sh_type != SHT_NOTE
 		  && filedata->section_headers[section->sh_info].sh_type != SHT_INIT_ARRAY
+		  && filedata->section_headers[section->sh_info].sh_type != SHT_FINI_ARRAY
+		  && filedata->section_headers[section->sh_info].sh_type != SHT_PREINIT_ARRAY
 		  /* FIXME: Are other section types valid ?  */
 		  && filedata->section_headers[section->sh_info].sh_type < SHT_LOOS))
 	    {
@@ -15651,6 +15655,12 @@ print_mips_ases (unsigned int mask)
     fputs ("\n\tGINV ASE", stdout);
   if (mask & AFL_ASE_LOONGSON_MMI)
     fputs ("\n\tLoongson MMI ASE", stdout);
+  if (mask & AFL_ASE_LOONGSON_CAM)
+    fputs ("\n\tLoongson CAM ASE", stdout);
+  if (mask & AFL_ASE_LOONGSON_EXT)
+    fputs ("\n\tLoongson EXT ASE", stdout);
+  if (mask & AFL_ASE_LOONGSON_EXT2)
+    fputs ("\n\tLoongson EXT2 ASE", stdout);
   if (mask == 0)
     fprintf (stdout, "\n\t%s", _("None"));
   else if ((mask & ~AFL_ASE_MASK) != 0)
@@ -15676,9 +15686,6 @@ print_mips_isa_ext (unsigned int isa_ext)
       break;
     case AFL_EXT_OCTEONP:
       fputs ("Cavium Networks OcteonP", stdout);
-      break;
-    case AFL_EXT_LOONGSON_3A:
-      fputs ("Loongson 3A", stdout);
       break;
     case AFL_EXT_OCTEON:
       fputs ("Cavium Networks Octeon", stdout);
@@ -17019,7 +17026,9 @@ decode_x86_compat_isa (unsigned int bitmask)
 	case GNU_PROPERTY_X86_COMPAT_ISA_1_AVX512BW:
 	  printf ("AVX512BW");
 	  break;
-	default: printf (_("<unknown: %x>"), bit); break;
+	default:
+	  printf (_("<unknown: %x>"), bit);
+	  break;
 	}
       if (bitmask)
 	printf (", ");
@@ -17029,6 +17038,14 @@ decode_x86_compat_isa (unsigned int bitmask)
 static void
 decode_x86_isa (unsigned int bitmask)
 {
+  if (bitmask == GNU_PROPERTY_X86_UINT32_VALID)
+    {
+      printf (_("<None>"));
+      return;
+    }
+  else
+    bitmask &= ~GNU_PROPERTY_X86_UINT32_VALID;
+
   while (bitmask)
     {
       unsigned int bit = bitmask & (- bitmask);
@@ -17108,7 +17125,9 @@ decode_x86_isa (unsigned int bitmask)
 	case GNU_PROPERTY_X86_ISA_1_AVX512_VNNI:
 	  printf ("AVX512_VNNI");
 	  break;
-	default: printf (_("<unknown: %x>"), bit); break;
+	default:
+	  printf (_("<unknown: %x>"), bit);
+	  break;
 	}
       if (bitmask)
 	printf (", ");
@@ -17118,6 +17137,14 @@ decode_x86_isa (unsigned int bitmask)
 static void
 decode_x86_feature_1 (unsigned int bitmask)
 {
+  if (bitmask == GNU_PROPERTY_X86_UINT32_VALID)
+    {
+      printf (_("<None>"));
+      return;
+    }
+  else
+    bitmask &= ~GNU_PROPERTY_X86_UINT32_VALID;
+
   while (bitmask)
     {
       unsigned int bit = bitmask & (- bitmask);
@@ -17143,6 +17170,14 @@ decode_x86_feature_1 (unsigned int bitmask)
 static void
 decode_x86_feature_2 (unsigned int bitmask)
 {
+  if (bitmask == GNU_PROPERTY_X86_UINT32_VALID)
+    {
+      printf (_("<None>"));
+      return;
+    }
+  else
+    bitmask &= ~GNU_PROPERTY_X86_UINT32_VALID;
+
   while (bitmask)
     {
       unsigned int bit = bitmask & (- bitmask);
@@ -17180,7 +17215,9 @@ decode_x86_feature_2 (unsigned int bitmask)
 	case GNU_PROPERTY_X86_FEATURE_2_XSAVEC:
 	  printf ("XSAVEC");
 	  break;
-	default: printf (_("<unknown: %x>"), bit); break;
+	default:
+	  printf (_("<unknown: %x>"), bit);
+	  break;
 	}
       if (bitmask)
 	printf (", ");
@@ -17237,14 +17274,10 @@ print_gnu_property_note (Filedata * filedata, Elf_Internal_Note * pnote)
 	      if (datasz == 4)
 		{
 		  bitmask = byte_get (ptr, 4);
-		  if (filedata->file_header.e_type == ET_EXEC
-		      || filedata->file_header.e_type == ET_DYN)
-		    {
-		      if ((bitmask & GNU_PROPERTY_X86_UINT32_VALID))
-			bitmask &= ~GNU_PROPERTY_X86_UINT32_VALID;
-		      else
-			printf ("Invalid ");
-		    }
+		  if ((filedata->file_header.e_type == ET_EXEC
+		       || filedata->file_header.e_type == ET_DYN)
+		      && !(bitmask & GNU_PROPERTY_X86_UINT32_VALID))
+		    printf ("Invalid ");
 		}
 	      else
 		bitmask = 0;
