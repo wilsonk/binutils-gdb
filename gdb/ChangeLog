@@ -1,3 +1,181 @@
+2018-09-06  Simon Ser  <contact@emersion.fr>
+
+	PR gdb/23105
+	* fbsd-nat.c (fbsd_nat_target::xfer_partial): Add support for
+	TARGET_OBJECT_FREEBSD_VMMAP and TARGET_OBJECT_FREEBSD_PS_STRINGS.
+	* fbsd-tdep.c (fbsd_make_note_desc): New.
+	(fbsd_make_corefile_notes): Write NT_PROCSTAT_AUXV,
+	NT_PROCSTAT_VMMAP and NT_PROCSTAT_PS_STRINGS notes.
+	* target.h (enum target_object) Add FreeBSD-specific
+	TARGET_OBJECT_FREEBSD_VMMAP and TARGET_OBJECT_FREEBSD_PS_STRINGS.
+
+2018-09-06  Simon Marchi  <simon.marchi@ericsson.com>
+
+	* compile/compile-c.h (generate_c_for_variable_locations):
+	Change reference to pointer.
+	* compile/compile-c-support.c (compile_program) <compute>:
+	Likewise.
+	* compile/compile-c-symbols.c (generate_vla_size): Likewise.
+	(generate_c_for_for_one_variable): Likewise
+	(generate_c_for_variable_locations): Likewise
+	* compile/compile-c-types.c (compile_c_instance::convert_type):
+	Likewise
+	* compile/compile-cplus-symbols.c (convert_one_symbol):
+	std::move the scope passed to enter_scope.
+	* compile/compile-cplus-types.c
+	(compile_cplus_instance::enter_scope): Make parameter
+	rvalue-reference.
+	(compile_cplus_instance::new_scope): Change reference to
+	pointer.
+	(compile_cplus_instance::convert_type): Likewise
+	(compile_cplus_convert_typedef): std::move the scope passed to
+	enter_scope.
+	(compile_cplus_convert_struct_or_union): Likewise.
+	(compile_cplus_convert_enum): Likewise.
+	(compile_cplus_convert_namespace): Likewise.
+	* compile/compile-cplus.h (compile_cplus_instance)
+	<enter_scope>: Make parameter rvalue-reference.
+	* compile/compile-internal.h (compile_instance)
+	<get_cached_type>: Likewise
+	* compile/compile-loc2c.c (push): Likewise
+	(pushf): Likewise
+	(unary): Likewise
+	(binary): Likewise
+	(print_label): Likewise
+	(pushf_register_address): Likewise
+	(pushf_register): Likewise
+	(do_compile_dwarf_expr_to_c): Likewise
+	(compile_dwarf_expr_to_c): Likewise
+	(compile_dwarf_bounds_to_c): Likewise
+	* compile/compile.c (compile_instance::get_cached_type):
+	Likewise
+	* compile/compile.h (compile_dwarf_expr_to_c): Likewise.
+	(compile_dwarf_bounds_to_c): Likewise
+	* dwarf2loc.c (locexpr_generate_c_location): Likewise.
+	(dwarf2_compile_property_to_c): Likewise
+	* dwarf2loc.h (dwarf2_compile_property_to_c): Likewise
+	* symtab.h (struct symbol_computed_ops) <generate_c_location>:
+	Likewise
+
+2018-09-06  Simon Marchi  <simon.marchi@ericsson.com>
+
+	* tui/tui-data.h (struct tui_win_element) <highlight>: Remove.
+	* tui/tui-data.c (init_content_element): Don't initialize it.
+
+2018-09-06  Simon Marchi  <simon.marchi@ericsson.com>
+
+	* tui/tui-data.h (struct tui_win_info)
+	<detail::opaque>: Remove.
+	* tui/tui-data.c (init_win_info): Remove assignment.
+
+2018-09-05  Tom Tromey  <tom@tromey.com>
+
+	* warning.m4 (AM_GDB_WARNINGS): Add -Wformat when testing
+	-Wformat-nonliteral.
+	* target-float.c (host_float_ops<T>::to_string)
+	(host_float_ops<T>::from_string): Use
+	DIAGNOSTIC_IGNORE_FORMAT_NONLITERAL.
+	* configure: Rebuild.
+
+2018-09-05  Simon Marchi  <simon.marchi@ericsson.com>
+
+	* printcmd.c (printf_c_string): Use
+	DIAGNOSTIC_IGNORE_FORMAT_NONLITERAL.
+	(printf_wide_c_string, printf_pointer, ui_printf): Likewise.
+
+2018-09-05  Tom Tromey  <tom@tromey.com>
+
+	* cli/cli-cmds.c (shell_escape, edit_command): Remove cast.
+
+2018-09-05  Tom de Vries  <tdevries@suse.de>
+
+	* dwarf2loc.c (sect_variable_value): Call indirect_synthetic_pointer
+	with resolve_abstract_p == true.
+	(indirect_synthetic_pointer): Add resolve_abstract_p parameter,
+	defaulting to false. Propagate resolve_abstract_p to
+	dwarf2_fetch_die_loc_sect_off.
+	* dwarf2loc.h (dwarf2_fetch_die_loc_sect_off): Add resolve_abstract_p
+	parameter, defaulting to false.
+	* dwarf2read.c (read_variable): Add variable to abstract_to_concrete.
+	(dwarf2_fetch_die_loc_sect_off): Add and handle resolve_abstract_p
+	parameter.
+	* dwarf2read.h (struct die_info): Forward-declare.
+	(die_info_ptr): New typedef.
+	(struct dwarf2_per_objfile): Add abstract_to_concrete field.
+
+2018-09-05  Joel Brobecker  <brobecker@adacore.com>
+
+	GDB 8.2 released.
+
+2018-09-04  Sergio Durigan Junior  <sergiodj@redhat.com>
+	    Pedro Alves  <palves@redhat.com>
+
+	* gnulib/Makefile.in (aclocal_m4_deps): Move to
+	"aclocal-m4-deps.mk".  Include file here.
+	$(srcdir)/aclocal.m4: Add "configure.ac".
+	* gnulib/aclocal-m4-deps.mk: New file.
+	* gnulib/update-gnulib.sh: Automatically update
+	"aclocal-m4-deps.mk".
+
+2018-09-04  Tom Tromey  <tom@tromey.com>
+
+	* configure: Rebuild.
+	* configure.ac: Remove multi-ice code.
+
+2018-09-04  Tom Tromey  <tom@tromey.com>
+
+	* Makefile.in (GDB_WARN_CFLAGS_NO_DEFS): Remove.
+	(ada-exp.o): Update.
+
+2018-09-04  Tom Tromey  <tom@tromey.com>
+
+	* Makefile.in (printcmd.o, target-float.o): Remove.
+	(GDB_WARN_CFLAGS_NO_FORMAT): Remove.
+
+2018-09-04  Tom Tromey  <tom@tromey.com>
+
+	* gnulib/Makefile.in: Remove obsolete comment.
+	* Makefile.in: Remove obsolete comment.
+
+2018-09-04  Andrew Burgess  <andrew.burgess@embecosm.com>
+
+	* riscv-tdep.c (riscv_frame_cache): Fix ARI warning, don't end a
+	line with '+'.
+
+2018-09-03  Andrew Burgess  <andrew.burgess@embecosm.com>
+
+	* riscv-tdep.c: Add 'prologue-value.h' include.
+	(struct riscv_unwind_cache): New struct.
+	(riscv_debug_unwinder): New global.
+	(riscv_scan_prologue): Update arguments, capture register details
+	from prologue scan.
+	(riscv_skip_prologue): Reformat arguments line, move end of
+	prologue calculation into riscv_scan_prologue.
+	(riscv_frame_cache): Update return type, create
+	riscv_unwind_cache, scan the prologue, and fill in remaining cache
+	details.
+	(riscv_frame_this_id): Use frame id computed in riscv_frame_cache.
+	(riscv_frame_prev_register): Use the trad_frame within the
+	riscv_unwind_cache.
+	(_initialize_riscv_tdep): Add 'set/show debug riscv unwinder'
+	flag.
+
+2018-09-03  Andrew Burgess  <andrew.burgess@embecosm.com>
+
+	* trad-frame.h (trad_frame_set_realreg): Declare.
+	(trad_frame_set_addr): Declare.
+	* trad-frame.c (trad_frame_set_realreg): Define new function.
+	(trad_frame_set_addr): Define new function.
+	(trad_frame_set_reg_realreg): Use new function.
+	(trad_frame_set_reg_addr): Use new function.
+
+2018-09-01  Keith Seitz  <keiths@redhat.com>
+
+	* compile/compile-cplus-types.c (compile_cplus_debug_output_1): Use
+	pulongest instead of "%lld".
+	* compile/compile-cplus-symbols.c (gcc_cplus_convert_symbol): Remove
+	ATTRIBUTE_UNUSED.
+
 2018-08-31  Tom Tromey  <tom@tromey.com>
 
 	* dwarf2read.c (dwarf2_add_field): Set the TYPE_LENGTH of the
