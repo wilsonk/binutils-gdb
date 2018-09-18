@@ -721,9 +721,6 @@ call_function_by_hand_dummy (struct value *function,
   struct type *target_values_type;
   unsigned char struct_return = 0, hidden_first_param_p = 0;
   CORE_ADDR struct_addr = 0;
-  struct infcall_control_state *inf_status;
-  struct cleanup *inf_status_cleanup;
-  struct infcall_suspend_state *caller_state;
   CORE_ADDR real_pc;
   CORE_ADDR bp_addr;
   struct frame_id dummy_id;
@@ -757,19 +754,16 @@ call_function_by_hand_dummy (struct value *function,
   if (!gdbarch_push_dummy_call_p (gdbarch))
     error (_("This target does not support function calls."));
 
-  /* A cleanup for the inferior status.
+  /* A holder for the inferior status.
      This is only needed while we're preparing the inferior function call.  */
-  inf_status = save_infcall_control_state ();
-  inf_status_cleanup
-    = make_cleanup_restore_infcall_control_state (inf_status);
+  infcall_control_state_up inf_status (save_infcall_control_state ());
 
   /* Save the caller's registers and other state associated with the
      inferior itself so that they can be restored once the
      callee returns.  To allow nested calls the registers are (further
-     down) pushed onto a dummy frame stack.  Include a cleanup (which
-     is tossed once the regcache has been pushed).  */
-  caller_state = save_infcall_suspend_state ();
-  make_cleanup_restore_infcall_suspend_state (caller_state);
+     down) pushed onto a dummy frame stack.  This unique pointer
+     is released once the regcache has been pushed).  */
+  infcall_suspend_state_up caller_state (save_infcall_suspend_state ());
 
   /* Ensure that the initial SP is correctly aligned.  */
   {
@@ -970,50 +964,46 @@ call_function_by_hand_dummy (struct value *function,
   if (nargs < TYPE_NFIELDS (ftype))
     error (_("Too few arguments in function call."));
 
-  {
-    int i;
-
-    for (i = nargs - 1; i >= 0; i--)
-      {
-	int prototyped;
-	struct type *param_type;
+  for (int i = nargs - 1; i >= 0; i--)
+    {
+      int prototyped;
+      struct type *param_type;
 	
-	/* FIXME drow/2002-05-31: Should just always mark methods as
-	   prototyped.  Can we respect TYPE_VARARGS?  Probably not.  */
-	if (TYPE_CODE (ftype) == TYPE_CODE_METHOD)
+      /* FIXME drow/2002-05-31: Should just always mark methods as
+	 prototyped.  Can we respect TYPE_VARARGS?  Probably not.  */
+      if (TYPE_CODE (ftype) == TYPE_CODE_METHOD)
+	prototyped = 1;
+      if (TYPE_TARGET_TYPE (ftype) == NULL && TYPE_NFIELDS (ftype) == 0
+	  && default_return_type != NULL)
+	{
+	  /* Calling a no-debug function with the return type
+	     explicitly cast.  Assume the function is prototyped,
+	     with a prototype matching the types of the arguments.
+	     E.g., with:
+	     float mult (float v1, float v2) { return v1 * v2; }
+	     This:
+	     (gdb) p (float) mult (2.0f, 3.0f)
+	     Is a simpler alternative to:
+	     (gdb) p ((float (*) (float, float)) mult) (2.0f, 3.0f)
+	  */
 	  prototyped = 1;
-	if (TYPE_TARGET_TYPE (ftype) == NULL && TYPE_NFIELDS (ftype) == 0
-	    && default_return_type != NULL)
-	  {
-	    /* Calling a no-debug function with the return type
-	       explicitly cast.  Assume the function is prototyped,
-	       with a prototype matching the types of the arguments.
-	       E.g., with:
-		 float mult (float v1, float v2) { return v1 * v2; }
-	       This:
-		 (gdb) p (float) mult (2.0f, 3.0f)
-	       Is a simpler alternative to:
-		 (gdb) p ((float (*) (float, float)) mult) (2.0f, 3.0f)
-	     */
-	    prototyped = 1;
-	  }
-	else if (i < TYPE_NFIELDS (ftype))
-	  prototyped = TYPE_PROTOTYPED (ftype);
-	else
-	  prototyped = 0;
+	}
+      else if (i < TYPE_NFIELDS (ftype))
+	prototyped = TYPE_PROTOTYPED (ftype);
+      else
+	prototyped = 0;
 
-	if (i < TYPE_NFIELDS (ftype))
-	  param_type = TYPE_FIELD_TYPE (ftype, i);
-	else
-	  param_type = NULL;
+      if (i < TYPE_NFIELDS (ftype))
+	param_type = TYPE_FIELD_TYPE (ftype, i);
+      else
+	param_type = NULL;
 
-	args[i] = value_arg_coerce (gdbarch, args[i],
-				    param_type, prototyped, &sp);
+      args[i] = value_arg_coerce (gdbarch, args[i],
+				  param_type, prototyped, &sp);
 
-	if (param_type != NULL && language_pass_by_reference (param_type))
-	  args[i] = value_addr (args[i]);
-      }
-  }
+      if (param_type != NULL && language_pass_by_reference (param_type))
+	args[i] = value_addr (args[i]);
+    }
 
   /* Reserve space for the return structure to be written on the
      stack, if necessary.  Make certain that the value is correctly
@@ -1130,15 +1120,10 @@ call_function_by_hand_dummy (struct value *function,
   if (unwind_on_terminating_exception_p)
     set_std_terminate_breakpoint ();
 
-  /* Discard both inf_status and caller_state cleanups.
-     From this point on we explicitly restore the associated state
-     or discard it.  */
-  discard_cleanups (inf_status_cleanup);
-
   /* Everything's ready, push all the info needed to restore the
      caller (and identify the dummy-frame) onto the dummy-frame
      stack.  */
-  dummy_frame_push (caller_state, &dummy_id, call_thread.get ());
+  dummy_frame_push (caller_state.release (), &dummy_id, call_thread.get ());
   if (dummy_dtor != NULL)
     register_dummy_frame_dtor (dummy_id, call_thread.get (),
 			       dummy_dtor, dummy_dtor_data);
@@ -1193,7 +1178,7 @@ call_function_by_hand_dummy (struct value *function,
 	       suspend state, and restore the inferior control
 	       state.  */
 	    dummy_frame_pop (dummy_id, call_thread.get ());
-	    restore_infcall_control_state (inf_status);
+	    restore_infcall_control_state (inf_status.release ());
 
 	    /* Get the return value.  */
 	    retval = sm->return_value;
@@ -1224,7 +1209,7 @@ call_function_by_hand_dummy (struct value *function,
       const char *name = get_function_name (funaddr,
                                             name_buf, sizeof (name_buf));
 
-      discard_infcall_control_state (inf_status);
+      discard_infcall_control_state (inf_status.release ());
 
       /* We could discard the dummy frame here if the program exited,
          but it will get garbage collected the next time the program is
@@ -1255,7 +1240,7 @@ When the function is done executing, GDB will silently stop."),
 
       /* If we try to restore the inferior status,
 	 we'll crash as the inferior is no longer running.  */
-      discard_infcall_control_state (inf_status);
+      discard_infcall_control_state (inf_status.release ());
 
       /* We could discard the dummy frame here given that the program exited,
          but it will get garbage collected the next time the program is
@@ -1277,7 +1262,7 @@ When the function is done executing, GDB will silently stop."),
 	 signal or breakpoint while our thread was running.
 	 There's no point in restoring the inferior status,
 	 we're in a different thread.  */
-      discard_infcall_control_state (inf_status);
+      discard_infcall_control_state (inf_status.release ());
       /* Keep the dummy frame record, if the user switches back to the
 	 thread with the hand-call, we'll need it.  */
       if (stopped_by_random_signal)
@@ -1318,7 +1303,7 @@ When the function is done executing, GDB will silently stop."),
 
 	      /* We also need to restore inferior status to that before the
 		 dummy call.  */
-	      restore_infcall_control_state (inf_status);
+	      restore_infcall_control_state (inf_status.release ());
 
 	      /* FIXME: Insert a bunch of wrap_here; name can be very
 		 long if it's a C++ name with arguments and stuff.  */
@@ -1336,7 +1321,7 @@ Evaluation of the expression containing the function\n\
 		 (default).
 		 Discard inferior status, we're not at the same point
 		 we started at.  */
-	      discard_infcall_control_state (inf_status);
+	      discard_infcall_control_state (inf_status.release ());
 
 	      /* FIXME: Insert a bunch of wrap_here; name can be very
 		 long if it's a C++ name with arguments and stuff.  */
@@ -1359,7 +1344,7 @@ When the function is done executing, GDB will silently stop."),
 
 	  /* We also need to restore inferior status to that before
 	     the dummy call.  */
-	  restore_infcall_control_state (inf_status);
+	  restore_infcall_control_state (inf_status.release ());
 
 	  error (_("\
 The program being debugged entered a std::terminate call, most likely\n\
@@ -1378,7 +1363,7 @@ will be abandoned."),
 	     Keep the dummy frame, the user may want to examine its state.
 	     Discard inferior status, we're not at the same point
 	     we started at.  */
-	  discard_infcall_control_state (inf_status);
+	  discard_infcall_control_state (inf_status.release ());
 
 	  /* The following error message used to say "The expression
 	     which contained the function call has been discarded."

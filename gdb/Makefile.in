@@ -1766,8 +1766,8 @@ install-only: $(CONFIG_INSTALL)
 	else \
 	  true ; \
 	fi ; \
-	$(INSTALL_PROGRAM) $(srcdir)/contrib/gdb-add-index.sh \
-		$(DESTDIR)$(bindir)/$$transformed_name$(EXEEXT)
+	$(INSTALL_SCRIPT) $(srcdir)/contrib/gdb-add-index.sh \
+		$(DESTDIR)$(bindir)/$$transformed_name
 	@$(MAKE) DO=install "DODIRS=$(SUBDIRS)" $(FLAGS_TO_PASS) subdir_do
 
 install-strip:
@@ -1889,7 +1889,7 @@ stamp-init: $(INIT_FILES)
 # against that.
 #
 # init.o is very important.  It pulls in the rest of GDB.
-LIBGDB_OBS = $(COMMON_OBS) init.o
+LIBGDB_OBS = $(sort $(COMMON_OBS)) init.o
 libgdb.a: $(LIBGDB_OBS)
 	-rm -f libgdb.a
 	$(AR) q libgdb.a $(LIBGDB_OBS)

@@ -1,3 +1,841 @@
+2018-09-17  Philippe Waroquiers  <philippe.waroquiers@skynet.be>
+
+	* python/lib/gdb/command/frame_filters.py (EnableFrameFilter):
+	Fix short help line.
+
+2018-09-17  Tom Tromey  <tom@tromey.com>
+
+	PR python/20445:
+	* configure: Rebuild.
+	* configure.ac: Conditionally use -DNDEBUG for Python.
+
+2018-09-17  Tom Tromey  <tom@tromey.com>
+
+	* configure: Rebuild.
+	* configure.ac: Use gmp as a library dependency when checking for
+	mpfr.
+
+2018-09-17  Pedro Alves  <palves@redhat.com>
+
+	* python/py-inferior.c (find_inferior_object): Delete.
+
+2018-09-17  Simon Marchi  <simon.marchi@ericsson.com>
+
+	* compile/compile-cplus-types.c
+	(compile_cplus_instance::enter_scope): Don't use new_scope after
+	std::move.
+
+2018-09-17  Tom Tromey  <tom@tromey.com>
+
+	* common/pathstuff.c (get_standard_cache_dir): Use
+	~/Library/Caches on macOS.
+	* common/pathstuff.h (get_standard_cache_dir): Update comment.
+
+2018-09-17  Simon Marchi  <simon.marchi@polymtl.ca>
+
+	PR python/23669
+	* breakpoint.c (commands_cmd_element): New.
+	(_initialize_breakpoint): Assign commands_cmd_element.
+	* breakpoint.h (commands_cmd_element): New.
+	* cli/cli-script.c (while_cmd_element, if_command,
+	define_cmd_element): New.
+	(command_name_equals): Remove.
+	(process_next_line): Compare commands by pointer, not by name.
+	(_initialize_cli_script): Assign the various cmd_list_element
+	variables.
+	* compile/compile.c (compile_cmd_element): New.
+	(_initialize_compile): Assign compile_cmd_element.
+	* compile/compile.h (compile_cmd_element): New.
+	* guile/guile.c (guile_cmd_element): New.
+	(install_gdb_commands): Assign guile_cmd_element.
+	* guile/guile.h (guile_cmd_element): New.
+	* python/python.c (python_cmd_element): New.
+	(_initialize_python): Assign python_cmd_element.
+	* python/python.h (python_cmd_element): New.
+	* tracepoint.c (while_stepping_cmd_element): New.
+	(_initialize_tracepoint): Assign while_stepping_cmd_element.
+	* tracepoint.h (while_stepping_cmd_element): New.
+
+2018-09-17  Tom Tromey  <tom@tromey.com>
+
+	* infrun.c (save_infcall_suspend_state): Return
+	infcall_suspend_state_up.
+	(save_infcall_control_state): Return infcall_control_state_up.
+	* inferior.h (save_infcall_suspend_state)
+	(save_infcall_control_state): Declare later.  Return unique
+	pointers.
+
+2018-09-17  Tom Tromey  <tom@tromey.com>
+
+	* infrun.c (struct stop_context): Declare constructor,
+	destructor, "changed" method.
+	(stop_context::stop_context): Rename from save_stop_context.
+	(stop_context::~stop_context): Rename from
+	release_stop_context_cleanup.
+	(normal_stop): Update.
+	(stop_context::changed): Rename from stop_context_changed.  Return
+	bool.
+
+2018-09-17  Tom Tromey  <tom@tromey.com>
+
+	* inferior.h (struct infcall_suspend_state_deleter): New.
+	(infcall_suspend_state_up): New typedef.
+	(struct infcall_control_state_deleter): New.
+	(infcall_control_state_up): New typedef.
+	(make_cleanup_restore_infcall_suspend_state)
+	(make_cleanup_restore_infcall_control_state): Don't declare.
+	* infcall.c (call_function_by_hand_dummy): Update.
+	* infrun.c (do_restore_infcall_suspend_state_cleanup)
+	(make_cleanup_restore_infcall_suspend_state): Remove.
+	(do_restore_infcall_control_state_cleanup)
+	(make_cleanup_restore_infcall_control_state): Remove.
+
+2018-09-17  Tom Tromey  <tom@tromey.com>
+
+	* gdbthread.h (struct thread_control_state): Add initializer.
+	(class thread_info) <control>: Remove initializer.
+	* inferior.h (struct inferior_control_state): Add initializer.
+	(class inferior) <control>: Remove initializer.
+	(exit_inferior_1): Update.
+	* infrun.c (struct infcall_control_state): Add constructors.
+	(save_infcall_control_state): Use new.
+	(restore_infcall_control_state, discard_infcall_control_state):
+	Use delete.
+
+2018-09-17  Tom Tromey  <tom@tromey.com>
+
+	* infrun.c (struct infcall_suspend_state) <registers>: Now a
+	unique_ptr.
+	<siginfo_data>: Now a unique_xmalloc_ptr.
+	(save_infcall_suspend_state, restore_infcall_suspend_state)
+	(discard_infcall_suspend_state)
+	(get_infcall_suspend_state_regcache): Update.
+
+2018-09-17  Tom Tromey  <tom@tromey.com>
+
+	* gdbthread.h (struct thread_suspend_state): Add initializers.
+	(class thread_info) <suspend>: Remove initializer.
+	* infrun.c (struct infcall_suspend_state): Add initializers.
+	(save_infcall_suspend_state): Use new.
+	(discard_infcall_suspend_state): Use delete.
+
+2018-09-16  Tom Tromey  <tom@tromey.com>
+
+	* python/python-internal.h (CPYCHECKER_STEALS_REFERENCE_TO_ARG):
+	Remove.
+	* python/py-varobj.c (py_varobj_iter_ctor): Change pyiter to
+	rvalue reference.  Remove CPYCHECKER_STEALS_REFERENCE_TO_ARG.
+	(py_varobj_iter_new): Likewise.
+	(py_varobj_get_iterator): Use gdbpy_ref.
+
+2018-09-16  Tom Tromey  <tom@tromey.com>
+
+	* python/py-threadevent.c (py_get_event_thread): Simplify.
+	* python/py-inferior.c (infpy_thread_from_thread_handle):
+	Return immediately after calling thread_to_thread_object.  Use
+	Py_RETURN_NONE.
+	(thread_to_thread_object): Set the exception on a NULL return.
+
+2018-09-16  Simon Marchi  <simon.marchi@polymtl.ca>
+
+	* Makefile.in (LIBGDB_OBS): Sort COMMON_OBS.
+
+2018-09-16  Tom Tromey  <tom@tromey.com>
+
+	* python/python-internal.h (CPYCHECKER_RETURNS_BORROWED_REF):
+	Remove.
+
+2018-09-16  Tom Tromey  <tom@tromey.com>
+
+	* python/python-internal.h (thread_to_thread_object): Change
+	return type.
+	* python/py-inferior.c (thread_to_thread_object): Return a new
+	reference.
+	(infpy_thread_from_thread_handle): Update.
+	* python/py-infthread.c (gdbpy_selected_thread): Update.
+	* python/py-stopevent.c (create_stop_event_object): Update.
+	* python/py-threadevent.c (py_get_event_thread): Return a new
+	reference.
+	(py_get_event_thread): Update.
+	* python/py-event.h (py_get_event_thread): Change return type.
+	* python/py-continueevent.c (create_continue_event_object):
+	Update.
+
+2018-09-16  Tom Tromey  <tom@tromey.com>
+
+	* python/py-progspace.c (pspy_get_objfiles): Update.
+	* python/python-internal.h (objfile_to_objfile_object): Change
+	return type.
+	* python/py-newobjfileevent.c (create_new_objfile_event_object):
+	Update.
+	* python/py-xmethods.c (gdbpy_get_matching_xmethod_workers):
+	Update.
+	* python/python.c (gdbpy_get_current_objfile): Update.
+	(gdbpy_objfiles): Update.
+	* python/py-objfile.c (objfpy_get_owner, gdbpy_lookup_objfile):
+	Update.
+	(objfile_to_objfile_object): Return a new reference.
+	* python/py-symtab.c (stpy_get_objfile): Update.
+	* python/py-prettyprint.c (find_pretty_printer_from_objfiles):
+	Update.
+
+2018-09-16  Tom Tromey  <tom@tromey.com>
+
+	* python/py-inferior.c (infpy_get_progspace): Update.
+	* python/python-internal.h (pspace_to_pspace_object): Change
+	return type.
+	* python/py-newobjfileevent.c
+	(create_clear_objfiles_event_object): Update.
+	* python/py-xmethods.c (gdbpy_get_matching_xmethod_workers):
+	Update.
+	* python/python.c (gdbpy_get_current_progspace): Update.
+	(gdbpy_progspaces): Update.
+	* python/py-progspace.c (pspace_to_pspace_object): Return a new
+	reference.
+	* python/py-objfile.c (objfpy_get_progspace): Update.
+	* python/py-prettyprint.c (find_pretty_printer_from_progspace):
+	Update.
+
+2018-09-16  Tom Tromey  <tom@tromey.com>
+
+	* python/lib/gdb/__init__.py (current_progspace, objfiles)
+	(solib_name, block_for_pc, find_pc_line): New functions.
+	(execute_unwinders): Update.
+	* python/py-block.c (gdbpy_block_for_pc): Remove.
+	* python/py-inferior.c (infpy_get_progspace): New function.
+	(inferior_object_getset) <progspace>: Add.
+	* python/py-progspace.c (pspy_objfiles): Rewrite.
+	(pspy_solib_name, pspy_block_for_pc)
+	(pspy_find_pc_line, pspy_is_valid): New functions.
+	(progspace_object_methods): Add entries for solib_name,
+	block_for_pc, find_pc_line, is_valid.
+	* python/python-internal.h (gdbpy_block_for_pc)
+	(build_objfiles_list): Don't declare.
+	* python/python.c: Don't include solib.h.
+	(gdbpy_solib_name, gdbpy_find_pc_line)
+	(gdbpy_get_current_progspace, build_objfiles_list)
+	(gdbpy_objfiles): Remove.
+	(GdbMethods) <current_progspace, objfiles, block_for_pc,
+	solib_name, find_pc_line>: Remove entries.
+
+2018-09-16  Tom Tromey  <tom@tromey.com>
+
+	* top.c (new_ui_command): Use GNU style for metasyntactic
+	variables.
+	* breakpoint.c (stopat_command): Use GNU style for metasyntactic
+	variables.
+	* maint.c (maintenance_translate_address): Remove "<>" around
+	text.
+	* interps.c (interpreter_exec_cmd): Use GNU style for
+	metasyntactic variables.
+	* nto-procfs.c (nto_procfs_target_info): Use GNU style for
+	metasyntactic variables.
+	* tracepoint.c (tfind_range_command): Use GNU style for
+	metasyntactic variables.
+	(tfind_outside_command): Likewise.
+	(_initialize_tracepoint): Likewise.
+	* remote.c (extended_remote_target::create_inferior): Use GNU
+	style for metasyntactic variables.
+	* sparc64-tdep.c (adi_examine_command): Use GNU style for
+	metasyntactic variables.
+	(adi_assign_command): Likewise.
+
+2018-09-16  Tom Tromey  <tom@tromey.com>
+
+	* disasm.c (show_disassembler_options_sfunc): Use GNU style for
+	metasyntactic variables.  Print message if no disassembler options
+	are available.
+
+2018-09-15  Tom Tromey  <tom@tromey.com>
+
+	* infcmd.c (get_inferior_args): Return const char *.
+	* inferior.h (get_inferior_args): Return type now const.
+	* linux-tdep.c (linux_fill_prpsinfo): Update.
+	* procfs.c (procfs_target::make_corefile_notes): Update.
+
+2018-09-07  Tom Tromey  <tom@tromey.com>
+
+	* python/python.c (execute_gdb_command): Call bpstat_do_actions
+	inside the TRY.
+
+2018-09-14  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* nios2-tdep.c (nios2_type_align): New.
+	(nios2_gdb_arch_init): Install type_align hook.
+
+2018-09-10  Andrew Burgess  <andrew.burgess@embecosm.com>
+
+	* eval.c (fake_method::fake_method): Call xzalloc directly for a
+	type that is neither object file owned, nor gdbarch owned.
+	* gdbtypes.c (get_type_gdbarch): Add an assert that returned
+	gdbarch is non-NULL.
+	(alloc_type_instance): Allocate non-objfile owned types on the
+	gdbarch obstack.
+	(copy_type_recursive): Allocate TYPE_FIELDS and TYPE_RANGE_DATA
+	using TYPE_ALLOC to ensure memory is allocated on the correct
+	obstack.
+	* gdbtypes.h (TYPE_ALLOC): Allocate space on either the objfile
+	obstack, or the gdbarch obstack.
+	(TYPE_ZALLOC): Rewrite using TYPE_ALLOC.
+
+2018-09-14  Tom Tromey  <tom@tromey.com>
+
+	* infcall.c (call_function_by_hand_dummy): Remove unnecessary
+	block.
+
+2018-09-14  Tom Tromey  <tom@tromey.com>
+
+	* nat/fork-inferior.c (get_startup_shell): Remove "static".
+
+2018-09-13  Tom Tromey  <tom@tromey.com>
+
+	* python/py-inferior.c (infpy_thread_from_thread_handle): Now
+	static.
+
+2018-09-13  Tom Tromey  <tom@tromey.com>
+
+	* exec.c (try_open_exec_file): Use std::string.
+
+2018-09-13  Tom Tromey  <tom@tromey.com>
+
+	* utils.h (gdb_bfd_errmsg): Return std::string.
+	* exec.c (exec_file_attach): Update.
+	* compile/compile-object-load.c (compile_object_load): Update.
+	* utils.c (gdb_bfd_errmsg): Return std::string.
+
+2018-09-13  Tom Tromey  <tom@tromey.com>
+
+	* procfs.c (struct procinfo_deleter): New.
+	(procinfo_up): New typedef.
+	(do_destroy_procinfo_cleanup): Remove.
+	(procfs_target::info_proc): Use procinfo_up.  Remove cleanups.
+
+2018-09-13  Tom Tromey  <tom@tromey.com>
+
+	* source.c (add_path): Use gdb::unique_xmalloc_ptr.
+
+2018-09-13  Simon Marchi  <simon.marchi@ericsson.com>
+2018-09-13  Tom Tromey  <tom@tromey.com>
+
+	* python/py-progspace.c (PSPY_REQUIRE_VALID): New macro.
+	(pspy_get_objfiles): New function.
+	(progspace_object_methods): New.
+	(pspace_object_type): Add tp_methods callback.
+	* python/python-internal.h (build_objfiles_list): New
+	declaration.
+	* python/python.c (build_objfiles_list): New function.
+	(gdbpy_objfiles): Implement using build_objfiles_list.
+	* NEWS: Mention the Progspace.objfiles method.
+
+2018-09-13  Simon Marchi  <simon.marchi@ericsson.com>
+
+	* python/py-inferior.c (infpy_get_progspace): New function.
+	(inferior_object_getset): Add progspace property.
+	* NEWS: Mention the new property.
+
+2018-09-13  Tom Tromey  <tom@tromey.com>
+
+	PR rust/23650:
+	* rust-lang.c (rust_evaluate_subexp): Use field name, not "foo".
+
+2018-09-13  Tom Tromey  <tom@tromey.com>
+
+	PR rust/23626:
+	* rust-lang.c (rust_enum_variant): Now static.
+	(rust_empty_enum_p): New function.
+	(rust_print_enum, rust_evaluate_subexp, rust_print_struct_def):
+	Handle empty enum.
+
+2018-09-13  Simon Marchi  <simon.marchi@ericsson.com>
+
+	* python/py-inferior.c (infpy_repr): New.
+	(inferior_object_type): Register infpy_repr.
+	* python/py-objfile.c (objfpy_repr): New.
+	(objfile_object_type): Register objfpy_repr.
+
+2018-09-12  John Baldwin  <jhb@FreeBSD.org>
+
+	* fbsd-nat.c (fbsd_nat_target::info_proc): Remove unused variable.
+
+2018-09-12  John Baldwin  <jhb@FreeBSD.org>
+
+	* aarch64-fbsd-tdep.h (AARCH64_FBSD_SIZEOF_GREGSET): Fix comment
+	typo.
+
+2018-09-12  Sergio Durigan Junior  <sergiodj@redhat.com>
+
+	* common/common-utils.c: Don't include '<sys/stat.h>'.
+	(is_regular_file): Move to...
+	* common/filestuff.c (is_regular_file): ... here.
+	* common/common-utils.h (is_regular_file): Move to...
+	* common/filestuff.h (is_regular_file): ... here.
+
+2018-09-12  Simon Marchi  <simon.marchi@ericsson.com>
+
+	* skip.c (debug_skip): New variable.
+	(skiplist_entry::do_skip_file_p): Add debug output.
+	(skiplist_entry::do_skip_gfile_p): Likewise.
+	(skiplist_entry::skip_function_p): Likewise.
+	(_initialize_step_skip): Create debug command.
+	* NEWS: Mention set/show debug skip.
+
+2018-09-11  Xavier Roirand  <roirand@adacore.com>
+
+	* darwin-nat.c (should_disable_startup_with_shell):
+	New function.
+	(darwin_nat_target::create_inferior): Add call.
+
+2018-09-11  Xavier Roirand  <roirand@adacore.com>
+
+	* darwin-nat.h (struct darwin_thread_info) <gdb_port,
+	inf_port, msg_state>: Initialize.
+	(struct darwin_thread_info) <signaled, single_step>: Change
+	type and initialize.
+	(struct darwin_thread_info) <event>: Initialize.
+
+2018-09-10  Sergio Durigan Junior  <sergiodj@redhat.com>
+
+	PR gdb/23555
+	PR gdb/23558
+	* gnulib/import/m4/getcwd-path-max.m4: Add cross-compilation
+	guesses.
+
+2018-09-10  Sergio Durigan Junior  <sergiodj@redhat.com>
+
+	Revert:
+	2018-08-29  Sergio Durigan Junior  <sergiodj@redhat.com>
+
+	PR gdb/23555
+	PR gdb/23558
+	* gnulib/aclocal.m4: Regenerate.
+	* gnulib/config.in: Regenerate.
+	* gnulib/configure: Regenerate.
+	* gnulib/import/Makefile.am: Update.
+	* gnulib/import/Makefile.in: Update.
+	* gnulib/import/extra/snippet/_Noreturn.h: Rename to...
+	* gnulib/import/_Noreturn.h: ... this.
+	* gnulib/import/alloca.in.h: Update.
+	* gnulib/import/extra/snippet/arg-nonnull.h: Rename to...
+	* gnulib/import/arg-nonnull.h: ... this.
+	* gnulib/import/assure.h: Update.
+	* gnulib/import/at-func.c: Update.
+	* gnulib/import/basename-lgpl.c: Update.
+	* gnulib/import/extra/snippet/c++defs.h: Rename to...
+	* gnulib/import/c++defs.h: ... this.
+	* gnulib/import/canonicalize-lgpl.c: Update.
+	* gnulib/import/cdefs.h: Update.
+	* gnulib/import/chdir-long.c: Update.
+	* gnulib/import/chdir-long.h: Update.
+	* gnulib/import/cloexec.c: Update.
+	* gnulib/import/cloexec.h: Update.
+	* gnulib/import/close.c: Update.
+	* gnulib/import/closedir.c: Update.
+	* gnulib/import/config.charset: Update.
+	* gnulib/import/dirent-private.h: Update.
+	* gnulib/import/dirent.in.h: Update.
+	* gnulib/import/dirfd.c: Update.
+	* gnulib/import/dirname-lgpl.c: Update.
+	* gnulib/import/dirname.h: Update.
+	* gnulib/import/dosname.h: Update.
+	* gnulib/import/dup-safer-flag.c: Update.
+	* gnulib/import/dup-safer.c: Update.
+	* gnulib/import/dup.c: Update.
+	* gnulib/import/dup2.c: Update.
+	* gnulib/import/errno.in.h: Update.
+	* gnulib/import/error.c: Update.
+	* gnulib/import/error.h: Update.
+	* gnulib/import/exitfail.c: Update.
+	* gnulib/import/exitfail.h: Update.
+	* gnulib/import/extra/update-copyright: Update.
+	* gnulib/import/fchdir.c: Update.
+	* gnulib/import/fcntl.c: Update.
+	* gnulib/import/fcntl.in.h: Update.
+	* gnulib/import/fd-hook.c: Update.
+	* gnulib/import/fd-hook.h: Update.
+	* gnulib/import/fd-safer-flag.c: Update.
+	* gnulib/import/fd-safer.c: Update.
+	* gnulib/import/fdopendir.c: Update.
+	* gnulib/import/filename.h: Update.
+	* gnulib/import/filenamecat-lgpl.c: Update.
+	* gnulib/import/filenamecat.h: Update.
+	* gnulib/import/flexmember.h: Update.
+	* gnulib/import/float+.h: Update.
+	* gnulib/import/float.c: Update.
+	* gnulib/import/float.in.h: Update.
+	* gnulib/import/fnmatch.c: Update.
+	* gnulib/import/fnmatch.in.h: Update.
+	* gnulib/import/fnmatch_loop.c: Update.
+	* gnulib/import/fpucw.h: Update.
+	* gnulib/import/frexp.c: Update.
+	* gnulib/import/frexpl.c: Update.
+	* gnulib/import/fstat.c: Update.
+	* gnulib/import/fstatat.c: Update.
+	* gnulib/import/getcwd-lgpl.c: Update.
+	* gnulib/import/getcwd.c: Update.
+	* gnulib/import/getdtablesize.c: Update.
+	* gnulib/import/getlogin_r.c: Update.
+	* gnulib/import/getprogname.c: Update.
+	* gnulib/import/getprogname.h: Update.
+	* gnulib/import/gettext.h: Update.
+	* gnulib/import/gettimeofday.c: Update.
+	* gnulib/import/glob-libc.h: Update.
+	* gnulib/import/glob.c: Update.
+	* gnulib/import/glob.in.h: Update.
+	* gnulib/import/glob_internal.h: Update.
+	* gnulib/import/glob_pattern_p.c: Update.
+	* gnulib/import/globfree.c: Update.
+	* gnulib/import/hard-locale.c: Update.
+	* gnulib/import/hard-locale.h: Update.
+	* gnulib/import/intprops.h: Update.
+	* gnulib/import/inttypes.in.h: Update.
+	* gnulib/import/isnan.c: Update.
+	* gnulib/import/isnand-nolibm.h: Update.
+	* gnulib/import/isnand.c: Update.
+	* gnulib/import/isnanl-nolibm.h: Update.
+	* gnulib/import/isnanl.c: Update.
+	* gnulib/import/itold.c: Update.
+	* gnulib/import/libc-config.h: Update.
+	* gnulib/import/limits.in.h: Update.
+	* gnulib/import/localcharset.c: Update.
+	* gnulib/import/localcharset.h: Update.
+	* gnulib/import/localtime-buffer.c: Update.
+	* gnulib/import/localtime-buffer.h: Update.
+	* gnulib/import/lstat.c: Update.
+	* gnulib/import/m4/00gnulib.m4: Update.
+	* gnulib/import/m4/__inline.m4: Update.
+	* gnulib/import/m4/absolute-header.m4: Update.
+	* gnulib/import/m4/alloca.m4: Update.
+	* gnulib/import/m4/builtin-expect.m4: Update.
+	* gnulib/import/m4/canonicalize.m4: Update.
+	* gnulib/import/m4/chdir-long.m4: Update.
+	* gnulib/import/m4/close.m4: Update.
+	* gnulib/import/m4/closedir.m4: Update.
+	* gnulib/import/m4/configmake.m4: Update.
+	* gnulib/import/m4/d-ino.m4: Update.
+	* gnulib/import/m4/d-type.m4: Update.
+	* gnulib/import/m4/dirent_h.m4: Update.
+	* gnulib/import/m4/dirfd.m4: Update.
+	* gnulib/import/m4/dirname.m4: Update.
+	* gnulib/import/m4/double-slash-root.m4: Update.
+	* gnulib/import/m4/dup.m4: Update.
+	* gnulib/import/m4/dup2.m4: Update.
+	* gnulib/import/m4/eealloc.m4: Update.
+	* gnulib/import/m4/environ.m4: Update.
+	* gnulib/import/m4/errno_h.m4: Update.
+	* gnulib/import/m4/error.m4: Update.
+	* gnulib/import/m4/exponentd.m4: Update.
+	* gnulib/import/m4/exponentl.m4: Update.
+	* gnulib/import/m4/extensions.m4: Update.
+	* gnulib/import/m4/extern-inline.m4: Update.
+	* gnulib/import/m4/fchdir.m4: Update.
+	* gnulib/import/m4/fcntl-o.m4: Update.
+	* gnulib/import/m4/fcntl.m4: Update.
+	* gnulib/import/m4/fcntl_h.m4: Update.
+	* gnulib/import/m4/fdopendir.m4: Update.
+	* gnulib/import/m4/filenamecat.m4: Update.
+	* gnulib/import/m4/flexmember.m4: Update.
+	* gnulib/import/m4/float_h.m4: Update.
+	* gnulib/import/m4/fnmatch.m4: Update.
+	* gnulib/import/m4/fnmatch_h.m4: Update.
+	* gnulib/import/m4/fpieee.m4: Update.
+	* gnulib/import/m4/frexp.m4: Update.
+	* gnulib/import/m4/frexpl.m4: Update.
+	* gnulib/import/m4/fstat.m4: Update.
+	* gnulib/import/m4/fstatat.m4: Update.
+	* gnulib/import/m4/getcwd-abort-bug.m4: Update.
+	* gnulib/import/m4/getcwd-path-max.m4: Update.
+	* gnulib/import/m4/getcwd.m4: Update.
+	* gnulib/import/m4/getdtablesize.m4: Update.
+	* gnulib/import/m4/getlogin.m4: Update.
+	* gnulib/import/m4/getlogin_r.m4: Update.
+	* gnulib/import/m4/getpagesize.m4: Update.
+	* gnulib/import/m4/getprogname.m4: Update.
+	* gnulib/import/m4/gettimeofday.m4: Update.
+	* gnulib/import/m4/glibc21.m4: Update.
+	* gnulib/import/m4/glob.m4: Update.
+	* gnulib/import/m4/glob_h.m4: Update.
+	* gnulib/import/m4/gnulib-cache.m4: Update.
+	* gnulib/import/m4/gnulib-common.m4: Update.
+	* gnulib/import/m4/gnulib-comp.m4: Update.
+	* gnulib/import/m4/gnulib-tool.m4: Update.
+	* gnulib/import/m4/hard-locale.m4: Update.
+	* gnulib/import/m4/include_next.m4: Update.
+	* gnulib/import/m4/inttypes-pri.m4: Update.
+	* gnulib/import/m4/inttypes.m4: Update.
+	* gnulib/import/m4/isnand.m4: Update.
+	* gnulib/import/m4/isnanl.m4: Update.
+	* gnulib/import/m4/largefile.m4: Update.
+	* gnulib/import/m4/limits-h.m4: Update.
+	* gnulib/import/m4/localcharset.m4: Update.
+	* gnulib/import/m4/locale-fr.m4: Update.
+	* gnulib/import/m4/locale-ja.m4: Update.
+	* gnulib/import/m4/locale-zh.m4: Update.
+	* gnulib/import/m4/localtime-buffer.m4: Update.
+	* gnulib/import/m4/longlong.m4: Update.
+	* gnulib/import/m4/lstat.m4: Update.
+	* gnulib/import/m4/malloc.m4: Update.
+	* gnulib/import/m4/malloca.m4: Update.
+	* gnulib/import/m4/math_h.m4: Update.
+	* gnulib/import/m4/mbrtowc.m4: Update.
+	* gnulib/import/m4/mbsinit.m4: Update.
+	* gnulib/import/m4/mbsrtowcs.m4: Update.
+	* gnulib/import/m4/mbstate_t.m4: Update.
+	* gnulib/import/m4/memchr.m4: Update.
+	* gnulib/import/m4/memmem.m4: Update.
+	* gnulib/import/m4/mempcpy.m4: Update.
+	* gnulib/import/m4/memrchr.m4: Update.
+	* gnulib/import/m4/mkdir.m4: Update.
+	* gnulib/import/m4/mkstemp.m4: Update.
+	* gnulib/import/m4/mmap-anon.m4: Update.
+	* gnulib/import/m4/mode_t.m4: Update.
+	* gnulib/import/m4/msvc-inval.m4: Update.
+	* gnulib/import/m4/msvc-nothrow.m4: Update.
+	* gnulib/import/m4/multiarch.m4: Update.
+	* gnulib/import/m4/nocrash.m4: Update.
+	* gnulib/import/m4/off_t.m4: Update.
+	* gnulib/import/m4/onceonly.m4: Update.
+	* gnulib/import/m4/open-cloexec.m4: Update.
+	* gnulib/import/m4/open.m4: Update.
+	* gnulib/import/m4/openat.m4: Update.
+	* gnulib/import/m4/opendir.m4: Update.
+	* gnulib/import/m4/pathmax.m4: Update.
+	* gnulib/import/m4/rawmemchr.m4: Update.
+	* gnulib/import/m4/readdir.m4: Update.
+	* gnulib/import/m4/readlink.m4: Update.
+	* gnulib/import/m4/realloc.m4: Update.
+	* gnulib/import/m4/rename.m4: Update.
+	* gnulib/import/m4/rewinddir.m4: Update.
+	* gnulib/import/m4/rmdir.m4: Update.
+	* gnulib/import/m4/save-cwd.m4: Update.
+	* gnulib/import/m4/secure_getenv.m4: Update.
+	* gnulib/import/m4/setenv.m4: Update.
+	* gnulib/import/m4/signal_h.m4: Update.
+	* gnulib/import/m4/ssize_t.m4: Update.
+	* gnulib/import/m4/stat-time.m4: Update.
+	* gnulib/import/m4/stat.m4: Update.
+	* gnulib/import/m4/std-gnu11.m4: Update.
+	* gnulib/import/m4/stdbool.m4: Update.
+	* gnulib/import/m4/stddef_h.m4: Update.
+	* gnulib/import/m4/stdint.m4: Update.
+	* gnulib/import/m4/stdio_h.m4: Update.
+	* gnulib/import/m4/stdlib_h.m4: Update.
+	* gnulib/import/m4/strchrnul.m4: Update.
+	* gnulib/import/m4/strdup.m4: Update.
+	* gnulib/import/m4/strerror.m4: Update.
+	* gnulib/import/m4/string_h.m4: Update.
+	* gnulib/import/m4/strstr.m4: Update.
+	* gnulib/import/m4/strtok_r.m4: Update.
+	* gnulib/import/m4/sys_socket_h.m4: Update.
+	* gnulib/import/m4/sys_stat_h.m4: Update.
+	* gnulib/import/m4/sys_time_h.m4: Update.
+	* gnulib/import/m4/sys_types_h.m4: Update.
+	* gnulib/import/m4/tempname.m4: Update.
+	* gnulib/import/m4/time_h.m4: Update.
+	* gnulib/import/m4/unistd-safer.m4: Update.
+	* gnulib/import/m4/unistd_h.m4: Update.
+	* gnulib/import/m4/warn-on-use.m4: Update.
+	* gnulib/import/m4/wchar_h.m4: Update.
+	* gnulib/import/m4/wchar_t.m4: Update.
+	* gnulib/import/m4/wctype_h.m4: Update.
+	* gnulib/import/m4/wint_t.m4: Update.
+	* gnulib/import/malloc.c: Update.
+	* gnulib/import/malloc/scratch_buffer.h: Update.
+	* gnulib/import/malloc/scratch_buffer_grow.c: Update.
+	* gnulib/import/malloc/scratch_buffer_grow_preserve.c: Update.
+	* gnulib/import/malloc/scratch_buffer_set_array_size.c: Update.
+	* gnulib/import/malloca.c: Update.
+	* gnulib/import/malloca.h: Update.
+	* gnulib/import/malloca.valgrind: Update.
+	* gnulib/import/math.in.h: Update.
+	* gnulib/import/mbrtowc.c: Update.
+	* gnulib/import/mbsinit.c: Update.
+	* gnulib/import/mbsrtowcs-impl.h: Update.
+	* gnulib/import/mbsrtowcs-state.c: Update.
+	* gnulib/import/mbsrtowcs.c: Update.
+	* gnulib/import/memchr.c: Update.
+	* gnulib/import/memmem.c: Update.
+	* gnulib/import/mempcpy.c: Update.
+	* gnulib/import/memrchr.c: Update.
+	* gnulib/import/mkdir.c: Update.
+	* gnulib/import/mkstemp.c: Update.
+	* gnulib/import/msvc-inval.c: Update.
+	* gnulib/import/msvc-inval.h: Update.
+	* gnulib/import/msvc-nothrow.c: Update.
+	* gnulib/import/msvc-nothrow.h: Update.
+	* gnulib/import/open.c: Update.
+	* gnulib/import/openat-die.c: Update.
+	* gnulib/import/openat-priv.h: Update.
+	* gnulib/import/openat-proc.c: Update.
+	* gnulib/import/openat.c: Update.
+	* gnulib/import/openat.h: Update.
+	* gnulib/import/opendir.c: Update.
+	* gnulib/import/pathmax.h: Update.
+	* gnulib/import/pipe-safer.c: Update.
+	* gnulib/import/rawmemchr.c: Update.
+	* gnulib/import/readdir.c: Update.
+	* gnulib/import/readlink.c: Update.
+	* gnulib/import/realloc.c: Update.
+	* gnulib/import/ref-add.sin: Update.
+	* gnulib/import/ref-del.sin: Update.
+	* gnulib/import/rename.c: Update.
+	* gnulib/import/rewinddir.c: Update.
+	* gnulib/import/rmdir.c: Update.
+	* gnulib/import/same-inode.h: Update.
+	* gnulib/import/save-cwd.c: Update.
+	* gnulib/import/save-cwd.h: Update.
+	* gnulib/import/scratch_buffer.h: Update.
+	* gnulib/import/secure_getenv.c: Update.
+	* gnulib/import/setenv.c: Update.
+	* gnulib/import/signal.in.h: Update.
+	* gnulib/import/stat-time.c: Update.
+	* gnulib/import/stat-time.h: Update.
+	* gnulib/import/stat-w32.c: Update.
+	* gnulib/import/stat-w32.h: Update.
+	* gnulib/import/stat.c: Update.
+	* gnulib/import/stdbool.in.h: Update.
+	* gnulib/import/stddef.in.h: Update.
+	* gnulib/import/stdint.in.h: Update.
+	* gnulib/import/stdio.in.h: Update.
+	* gnulib/import/stdlib.in.h: Update.
+	* gnulib/import/str-two-way.h: Update.
+	* gnulib/import/strchrnul.c: Update.
+	* gnulib/import/strdup.c: Update.
+	* gnulib/import/streq.h: Update.
+	* gnulib/import/strerror-override.c: Update.
+	* gnulib/import/strerror-override.h: Update.
+	* gnulib/import/strerror.c: Update.
+	* gnulib/import/string.in.h: Update.
+	* gnulib/import/stripslash.c: Update.
+	* gnulib/import/strnlen1.c: Update.
+	* gnulib/import/strnlen1.h: Update.
+	* gnulib/import/strstr.c: Update.
+	* gnulib/import/strtok_r.c: Update.
+	* gnulib/import/sys_stat.in.h: Update.
+	* gnulib/import/sys_time.in.h: Update.
+	* gnulib/import/sys_types.in.h: Update.
+	* gnulib/import/tempname.c: Update.
+	* gnulib/import/tempname.h: Update.
+	* gnulib/import/time.in.h: Update.
+	* gnulib/import/unistd--.h: Update.
+	* gnulib/import/unistd-safer.h: Update.
+	* gnulib/import/unistd.in.h: Update.
+	* gnulib/import/unsetenv.c: Update.
+	* gnulib/import/verify.h: Update.
+	* gnulib/import/extra/snippet/warn-on-use.h: Update.
+	* gnulib/import/wchar.in.h: Update.
+	* gnulib/import/wctype.in.h: Update.
+	* gnulib/import/xalloc-oversized.h: Update.
+	* gnulib/update-gnulib.sh (GNULIB_COMMIT_SHA1): Set to
+	"53e2c179f26a890fa6685af4b6c1397ee370433b".
+
+2018-09-10  Simon Marchi  <simon.marchi@ericsson.com>
+
+	* record-btrace.c (get_thread_current_frame): Remove
+	old_inferior_ptid.
+
+2018-09-10  Jerome Guitton  <guitton@adacore.com>
+
+	* ada-lang.c (ada_value_struct_elt): Call ada_to_fixed_type
+	with check_tag to 1 if and only if the type is tagged and the
+	component being searched cannot been found in the current
+	view. Otherwise, always call ada_to_fixed_type with
+	check_tag to 0.
+
+2018-09-10  Xavier Roirand  <roirand@adacore.com>
+
+	* ada-lang.c (ada_is_access_to_unconstrained_array): Remove static
+	declaration.
+	* ada-lang.h: add ada_is_access_to_unconstrained_array prototype.
+	* ada-varobj.c (ada_varobj_get_number_of_children,
+	ada_varobj_describe_child, ada_value_is_changeable_p): Cleanup code.
+
+2018-09-10  Xavier Roirand  <roirand@adacore.com>
+
+	* ada-valprint.c (ada_value_print): Use type instead of
+	enclosing type.
+
+2018-09-10  Xavier Roirand  <roirand@adacore.com>
+
+	* ada-lang.c (ada_value_subscript): Handle case when parameter is
+	an array of access to unconstrained array.
+
+2018-09-10  Xavier Roirand  <roirand@adacore.com>
+
+	* ada-lang.c (ada_is_access_to_unconstrained_array): New function.
+	(ada_check_typedef): Use it.
+
+2018-09-10  Xavier Roirand  <roirand@adacore.com>
+
+	* ada-varobj.c (ada_varobj_describe_struct_child)
+	(ada_varobj_describe_child): Handle union case like struct one.
+
+2018-09-10  Tom Tromey  <tom@tromey.com>
+
+	PR python/18380:
+	* python/python.c (_initialize_python): Make example in "python"
+	help work in Python 3.
+
+2018-09-10  Eli Zaretskii  <eliz@gnu.org>
+
+	* Makefile.in (transformed_name): Use INSTALL_SCRIPT instead of
+	INSTALL_PROGRAM to install gdb-add-index.sh.  Don't append
+	$(EXEEXT) to the script, as it is not a program.
+
+2018-09-09  Simon Marchi  <simon.marchi@ericsson.com>
+
+	* python/py-prettyprint.c (pretty_print_one_value): Return
+	gdbpy_ref<>.
+	(print_string_repr): Adjust.
+	(apply_varobj_pretty_printer): Return gdbpy_ref<>.
+	* python/python-internal.h (apply_varobj_pretty_printer): Return
+	gdbpy_ref<>.
+	* varobj.c (varobj_value_get_print_value): Adjust.
+
+2018-09-08  Tom Tromey  <tom@tromey.com>
+
+	PR python/16047:
+	* python/py-prettyprint.c (pretty_print_one_value): Check for
+	to_string method.
+
+2018-09-08  Joel Brobecker  <brobecker@adacore.com>
+
+	* ada-lang.c (resolve_subexp): Pass correct OPLEN in call to
+	replace_operator_with_call.
+
+2018-09-08  Joel Brobecker  <brobecker@adacore.com>
+
+	* ada-lang.c (ada_value_cast): Remove unnecessary parentheses.
+
+2018-09-08  Joel Brobecker  <brobecker@adacore.com>
+
+	* ada-typeprint.c (print_range): Print the bounds using TYPE
+	rather than its TYPE_TARGET_TYPE.
+
+2018-09-08  Joel Brobecker  <brobecker@adacore.com>
+
+	* ada-lang.c (ada_to_fixed_value): Minor reformatting in
+	call to ada_to_fixed_value_create.
+
+2018-09-08  Jerome Guitton  <guitton@adacore.com>
+
+	* ada-lang.c (ada_decode): strip dot prefix in symbol name.
+
+2018-09-08  Joel Brobecker  <brobecker@adacore.com>
+
+	* ada-lang.c (ada_exception_sal): Replace gdb_assert calls
+	by calls to error.
+
+2018-09-08  Joel Brobecker  <brobecker@adacore.com>
+
+	* ada-lang.c (ada_unhandled_exception_name_addr_from_raise):
+	Move update of loop variable "fi".
+
+2018-09-08  Joel Brobecker  <brobecker@adacore.com>
+
+	* ada-lang.c (value_assign_to_component): In the case of
+	big-endian targets, extract the bits of the given VAL
+	using an src_offset of zero if container is not a scalar.
+
 2018-09-06  Simon Ser  <contact@emersion.fr>
 
 	PR gdb/23105

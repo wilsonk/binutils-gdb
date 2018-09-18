@@ -292,21 +292,7 @@ python_inferior_deleted (struct inferior *inf)
     gdbpy_print_stack ();
 }
 
-/* Finds the Python Inferior object for the given PID.  Returns a
-   reference, or NULL if PID does not match any inferior object. */
-
-PyObject *
-find_inferior_object (int pid)
-{
-  struct inferior *inf = find_inferior_pid (pid);
-
-  if (inf)
-    return (PyObject *) inferior_to_inferior_object (inf);
-
-  return NULL;
-}
-
-thread_object *
+gdbpy_ref<>
 thread_to_thread_object (thread_info *thr)
 {
   gdbpy_ref<inferior_object> inf_obj (inferior_to_inferior_object (thr->inf));
@@ -317,8 +303,10 @@ thread_to_thread_object (thread_info *thr)
        thread != NULL;
        thread = thread->next)
     if (thread->thread_obj->thread == thr)
-      return thread->thread_obj;
+      return gdbpy_ref<>::new_reference ((PyObject *) thread->thread_obj);
 
+  PyErr_SetString (PyExc_SystemError,
+		   _("could not find gdb thread object"));
   return NULL;
 }
 
@@ -457,6 +445,21 @@ infpy_get_was_attached (PyObject *self, void *closure)
   if (inf->inferior->attach_flag)
     Py_RETURN_TRUE;
   Py_RETURN_FALSE;
+}
+
+/* Getter of gdb.Inferior.progspace.  */
+
+static PyObject *
+infpy_get_progspace (PyObject *self, void *closure)
+{
+  inferior_object *inf = (inferior_object *) self;
+
+  INFPY_REQUIRE_VALID (inf);
+
+  program_space *pspace = inf->inferior->pspace;
+  gdb_assert (pspace != nullptr);
+
+  return pspace_to_pspace_object (pspace).release ();
 }
 
 static int
@@ -814,10 +817,10 @@ infpy_is_valid (PyObject *self, PyObject *args)
 /* Implementation of gdb.Inferior.thread_from_thread_handle (self, handle)
                         ->  gdb.InferiorThread.  */
 
-PyObject *
+static PyObject *
 infpy_thread_from_thread_handle (PyObject *self, PyObject *args, PyObject *kw)
 {
-  PyObject *handle_obj, *result;
+  PyObject *handle_obj;
   inferior_object *inf_obj = (inferior_object *) self;
   static const char *keywords[] = { "thread_handle", NULL };
 
@@ -826,8 +829,6 @@ infpy_thread_from_thread_handle (PyObject *self, PyObject *args, PyObject *kw)
   if (! gdb_PyArg_ParseTupleAndKeywords (args, kw, "O", keywords, &handle_obj))
     return NULL;
 
-  result = Py_None;
-
   if (!gdbpy_is_value_object (handle_obj))
     {
       PyErr_SetString (PyExc_TypeError,
@@ -835,29 +836,38 @@ infpy_thread_from_thread_handle (PyObject *self, PyObject *args, PyObject *kw)
 
       return NULL;
     }
-  else
+
+  TRY
     {
-      TRY
-	{
-	  struct thread_info *thread_info;
-	  struct value *val = value_object_to_value (handle_obj);
+      struct thread_info *thread_info;
+      struct value *val = value_object_to_value (handle_obj);
 
-	  thread_info = find_thread_by_handle (val, inf_obj->inferior);
-	  if (thread_info != NULL)
-	    {
-	      result = (PyObject *) thread_to_thread_object (thread_info);
-	      if (result != NULL)
-		Py_INCREF (result);
-	    }
-	}
-      CATCH (except, RETURN_MASK_ALL)
-	{
-	  GDB_PY_HANDLE_EXCEPTION (except);
-	}
-      END_CATCH
+      thread_info = find_thread_by_handle (val, inf_obj->inferior);
+      if (thread_info != NULL)
+	return thread_to_thread_object (thread_info).release ();
     }
+  CATCH (except, RETURN_MASK_ALL)
+    {
+      GDB_PY_HANDLE_EXCEPTION (except);
+    }
+  END_CATCH
 
-  return result;
+  Py_RETURN_NONE;
+}
+
+/* Implement repr() for gdb.Inferior.  */
+
+static PyObject *
+infpy_repr (PyObject *obj)
+{
+  inferior_object *self = (inferior_object *) obj;
+  inferior *inf = self->inferior;
+
+  if (inf == nullptr)
+    return PyString_FromString ("<gdb.Inferior (invalid)>");
+
+  return PyString_FromFormat ("<gdb.Inferior num=%d, pid=%d>",
+			      inf->num, inf->pid);
 }
 
 
@@ -951,6 +961,7 @@ static gdb_PyGetSetDef inferior_object_getset[] =
     NULL },
   { "was_attached", infpy_get_was_attached, NULL,
     "True if the inferior was created using 'attach'.", NULL },
+  { "progspace", infpy_get_progspace, NULL, "Program space of this inferior" },
   { NULL }
 };
 
@@ -991,7 +1002,7 @@ PyTypeObject inferior_object_type =
   0,				  /* tp_getattr */
   0,				  /* tp_setattr */
   0,				  /* tp_compare */
-  0,				  /* tp_repr */
+  infpy_repr,			  /* tp_repr */
   0,				  /* tp_as_number */
   0,				  /* tp_as_sequence */
   0,				  /* tp_as_mapping */
