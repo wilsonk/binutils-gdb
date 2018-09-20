@@ -1,3 +1,48 @@
+2018-09-19  Xavier Roirand  <roirand@adacore.com>
+
+	PR gdb/20981:
+	* solib-darwin.c (darwin_get_dyld_bfd): New function.
+	(darwin_solib_get_all_image_info_addr_at_init): Update call.
+	(darwin_solib_create_inferior_hook): Handle unrelocated dyld.
+
+2018-09-19  John Baldwin  <jhb@FreeBSD.org>
+
+	* fbsd-tdep.c (fbsd_print_sockaddr_in): Style fix.
+	(fbsd_print_sockaddr_in6): Likewise.
+
+2018-09-19  Richard Bunt  <richard.bunt@arm.com>
+	    Chris January  <chris.january@arm.com>
+
+	* eval.c (skip_undetermined_arglist): Skip argument list helper.
+	(evaluate_subexp_standard): Return a dummy type when
+	honoring EVAL_SKIP in OP_VAR_VALUE and handle skipping in the
+	OP_F77_UNDETERMINED_ARGLIST case.
+	* expression.h (enum noside): Update comment.
+
+2018-09-19  George Vasick <george.vasick@oracle.com>
+
+	* solib-svr4.c (svr4_same_1): Also handle amd64 ld.so.1.
+
+2018-09-19  Stefan Teleman <stefan.teleman@oracle.com>
+	    April Chin <april.chin@oracle.com>
+	    Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* procfs.c (MAX_PROC_NAME_SIZE): Allow for 6-digit PID_MAX and
+	uint_t lwpid_t.
+	(create_procinfo): Print pids in /proc without leading zeros.
+
+2018-09-18  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* nios2-tdep.c (nios2_gcc_target_options): New.
+	(nios2_gdb_arch_init): Install new hook.
+
+2018-09-18  Simon Marchi  <simon.marchi@ericsson.com>
+
+	* patches/0001-Fix-PR-gdb-23558-Use-system-s-getcwd-when-cross-comp.patch:
+	New file.
+	* update-gnulib.sh: Apply patch.
+	* configure: Re-generate.
+
 2018-09-18  John Baldwin  <jhb@FreeBSD.org>
 
 	* infcmd.c (_initialize_infcmd): Remove "running" from "info proc"
