@@ -1,5 +1,5 @@
 dnl Autoconf configure script for GDB, the GNU debugger.
-dnl Copyright (C) 1995-2018 Free Software Foundation, Inc.
+dnl Copyright (C) 1995-2019 Free Software Foundation, Inc.
 dnl
 dnl This file is part of GDB.
 dnl
@@ -146,7 +146,7 @@ AC_ARG_WITH(auto-load-dir,
 AS_HELP_STRING([--with-auto-load-dir=PATH],
   [directories from which to load auto-loaded scripts @<:@$debugdir:$datadir/auto-load@:>@]),,
   [with_auto_load_dir='$debugdir:$datadir/auto-load'])
-escape_dir=`echo $with_auto_load_dir | sed 's/[[$]]\(datadir\|debugdir\)\>/\\\\\\\\\\\\&/g'`
+escape_dir=`echo $with_auto_load_dir | sed -e 's/[[$]]datadir\>/\\\\\\\\\\\\&/g' -e 's/[[$]]debugdir\>/\\\\\\\\\\\\&/g'`
 AC_DEFINE_DIR(AUTO_LOAD_DIR, escape_dir,
 	      [Directories from which to load auto-loaded scripts.])
 AC_MSG_RESULT([$with_auto_load_dir])
@@ -161,7 +161,7 @@ AS_HELP_STRING([--without-auto-load-safe-path],
      with_auto_load_safe_path="/"
      fi],
 [with_auto_load_safe_path="$with_auto_load_dir"])
-escape_dir=`echo $with_auto_load_safe_path | sed 's/[[$]]\(datadir\|debugdir\)\>/\\\\\\\\\\\\&/g'`
+escape_dir=`echo $with_auto_load_safe_path | sed -e 's/[[$]]datadir\>/\\\\\\\\\\\\&/g' -e 's/[[$]]debugdir\>/\\\\\\\\\\\\&/g'`
 AC_DEFINE_DIR(AUTO_LOAD_SAFE_PATH, escape_dir,
 	      [Directories safe to hold auto-loaded files.])
 AC_MSG_RESULT([$with_auto_load_safe_path])
@@ -592,7 +592,7 @@ case $host_os in
 esac
 
 # These are the libraries checked by Readline.
-AC_SEARCH_LIBS(tgetent, [termcap tinfo curses ncursesw ncurses])
+AC_SEARCH_LIBS(tgetent, [termcap tinfow tinfo curses ncursesw ncurses])
 
 if test "$ac_cv_search_tgetent" = no; then
   CONFIG_OBS="$CONFIG_OBS stub-termcap.o"
@@ -682,7 +682,7 @@ if test "${with_mpfr}" = no; then
   AC_MSG_WARN([MPFR support disabled; some features may be unavailable.])
   HAVE_LIBMPFR=no
 else
-  AC_LIB_HAVE_LINKFLAGS([mpfr], [], [#include <mpfr.h>],
+  AC_LIB_HAVE_LINKFLAGS([mpfr], [gmp], [#include <mpfr.h>],
 			[mpfr_exp_t exp; mpfr_t x;
 			 mpfr_frexp (&exp, x, x, MPFR_RNDN);])
   if test "$HAVE_LIBMPFR" != yes; then
@@ -965,7 +965,11 @@ if test "${have_libpython}" != no; then
   # would make the python-related objects be compiled differently from the
   # rest of GDB (e.g., -O2 and -fPIC).
   if test "${GCC}" = yes; then
-    tentative_python_cflags="-fno-strict-aliasing -DNDEBUG -fwrapv"
+    tentative_python_cflags="-fno-strict-aliasing -fwrapv"
+    # Python headers recommend -DNDEBUG, but it's unclear if that just
+    # refers to building Python itself.  In release mode, though, it
+    # doesn't hurt for the Python code in gdb to follow.
+    $development || tentative_python_cflags="$tentative_python_cflags -DNDEBUG"
   fi
 
   if test "x${tentative_python_cflags}" != x; then
@@ -1222,6 +1226,29 @@ AC_SUBST(GUILE_CPPFLAGS)
 AC_SUBST(GUILE_LIBS)
 AM_CONDITIONAL(HAVE_GUILE, test "${have_libguile}" != no)
 
+# ---------------------------- #
+# Check for source highlight.  #
+# ---------------------------- #
+
+SRCHIGH_LIBS=
+SRCHIGH_CFLAGS=
+AC_MSG_CHECKING([for the source-highlight library])
+if test "${pkg_config_prog_path}" = "missing"; then
+   AC_MSG_RESULT([no - pkg-config not found])
+else
+   if ${pkg_config_prog_path} --exists source-highlight; then
+      SRCHIGH_CFLAGS=`${pkg_config_prog_path} --cflags source-highlight`
+      SRCHIGH_LIBS=`${pkg_config_prog_path} --libs source-highlight`
+      AC_DEFINE([HAVE_SOURCE_HIGHLIGHT], 1,
+                [Define to 1 if the source-highlight library is available])
+      AC_MSG_RESULT([yes])
+   else
+      AC_MSG_RESULT([no])
+   fi
+fi
+AC_SUBST(SRCHIGH_LIBS)
+AC_SUBST(SRCHIGH_CFLAGS)
+
 # --------------------- #
 # Check for libmcheck.  #
 # --------------------- #
@@ -1292,7 +1319,7 @@ fi
 AC_HEADER_STDC
 # elf_hp.h is for HP/UX 64-bit shared library support.
 AC_CHECK_HEADERS([nlist.h machine/reg.h poll.h sys/poll.h proc_service.h \
-                  thread_db.h \
+                  thread_db.h linux/elf.h \
 		  sys/file.h sys/filio.h sys/ioctl.h sys/param.h \
 		  sys/resource.h sys/procfs.h sys/ptrace.h ptrace.h \
 		  sys/reg.h sys/debugreg.h sys/select.h \
@@ -1355,7 +1382,7 @@ AC_CHECK_FUNCS([getauxval getrusage getuid getgid \
 		sigaction sigprocmask sigsetmask socketpair \
 		ttrace wborder wresize setlocale iconvlist libiconvlist btowc \
 		setrlimit getrlimit posix_madvise waitpid \
-		ptrace64 sigaltstack mkdtemp setns])
+		ptrace64 sigaltstack setns use_default_colors])
 AM_LANGINFO_CODESET
 GDB_AC_COMMON
 
@@ -1524,33 +1551,7 @@ if test "$ac_cv_header_sys_procfs_h" = yes; then
   BFD_HAVE_SYS_PROCFS_TYPE(prgregset32_t)
   BFD_HAVE_SYS_PROCFS_TYPE(lwpid_t)
   BFD_HAVE_SYS_PROCFS_TYPE(psaddr_t)
-
-  dnl Check for broken prfpregset_t type
-
-  dnl For Linux/i386, glibc 2.1.3 was released with a bogus
-  dnl prfpregset_t type (it's a typedef for the pointer to a struct
-  dnl instead of the struct itself).  We detect this here, and work
-  dnl around it in gdb_proc_service.h.
-
-  if test $bfd_cv_have_sys_procfs_type_prfpregset_t = yes; then
-    AC_MSG_CHECKING(whether prfpregset_t type is broken)
-    AC_CACHE_VAL(gdb_cv_prfpregset_t_broken,
-      [AC_TRY_RUN([#include <sys/procfs.h>
-       int main ()
-       {
-         if (sizeof (prfpregset_t) == sizeof (void *))
-           return 1;
-         return 0;
-       }],
-       gdb_cv_prfpregset_t_broken=no,
-       gdb_cv_prfpregset_t_broken=yes,
-       gdb_cv_prfpregset_t_broken=yes)])
-    AC_MSG_RESULT($gdb_cv_prfpregset_t_broken)
-    if test $gdb_cv_prfpregset_t_broken = yes; then
-      AC_DEFINE(PRFPREGSET_T_BROKEN, 1,
-      [Define if the prfpregset_t type is broken.])
-    fi
-  fi
+  BFD_HAVE_SYS_PROCFS_TYPE(elf_fpregset_t)
 fi
 
 # Check if the compiler supports the `long long' type.
@@ -1860,6 +1861,7 @@ GDB_AC_WITH_DIR(SYSTEM_GDBINIT, system-gdbinit,
     [])
 
 AM_GDB_WARNINGS
+AM_GDB_UBSAN
 
 # In the Cygwin environment, we need some additional flags.
 AC_CACHE_CHECK([for cygwin], gdb_cv_os_cygwin,
@@ -1875,6 +1877,7 @@ case ${host} in
   *go32* ) SER_HARDWIRE=ser-go32.o ;;
   *djgpp* ) SER_HARDWIRE=ser-go32.o ;;
   *mingw32*) SER_HARDWIRE="ser-base.o ser-tcp.o ser-mingw.o" ;;
+  *) SER_HARDWIRE="$SER_HARDWIRE ser-uds.o" ;;
 esac
 AC_SUBST(SER_HARDWIRE)
 
@@ -2160,18 +2163,6 @@ if test x"${gdb_osabi}" != x ; then
 		       [Define to the default OS ABI for this configuration.])
 fi
 
-# Enable multi-ice-gdb-server.
-AC_ARG_ENABLE(multi-ice,
-AS_HELP_STRING([--enable-multi-ice], [build the multi-ice-gdb-server]),
-  [case $enableval in
-    yes | no)
-      ;;
-    *) AC_MSG_ERROR([bad value $enableval for --enable-multi-ice]) ;;
-  esac])
-if test "x$enable_multi_ice" = xyes; then
-   AC_CONFIG_SUBDIRS(multi-ice)
-fi
-
 AC_ARG_ENABLE(gdbserver,
 AS_HELP_STRING([--enable-gdbserver],
                [automatically build gdbserver (yes/no/auto, default is auto)]),
@@ -2279,12 +2270,10 @@ dnl  At the moment, we just assume it's UTF-8.
 AC_DEFINE(GDB_DEFAULT_HOST_CHARSET, "UTF-8",
           [Define to be a string naming the default host character set.])
 
-if $development; then
-  AC_DEFINE(GDB_SELF_TEST, 1,
-            [Define if self-testing features should be enabled])
+GDB_AC_SELFTEST([
   CONFIG_OBS="$CONFIG_OBS \$(SUBDIR_UNITTESTS_OBS) common/selftest.o selftest-arch.o"
   CONFIG_SRCS="$CONFIG_SRCS \$(SUBDIR_UNITTESTS_SRCS) common/selftest.c selftest-arch.c"
-fi
+])
 
 GDB_AC_TRANSFORM([gdb], [GDB_TRANSFORM_NAME])
 GDB_AC_TRANSFORM([gcore], [GCORE_TRANSFORM_NAME])

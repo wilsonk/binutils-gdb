@@ -1,5 +1,5 @@
 /* linker.c -- BFD linker routines
-   Copyright (C) 1993-2018 Free Software Foundation, Inc.
+   Copyright (C) 1993-2019 Free Software Foundation, Inc.
    Written by Steve Chamberlain and Ian Lance Taylor, Cygnus Support
 
    This file is part of BFD, the Binary File Descriptor library.
@@ -3119,7 +3119,7 @@ bfd_generic_define_common_symbol (bfd *output_bfd,
   /* Make sure the section is allocated in memory, and make sure that
      it is no longer a common section.  */
   section->flags |= SEC_ALLOC;
-  section->flags &= ~SEC_IS_COMMON;
+  section->flags &= ~(SEC_IS_COMMON | SEC_HAS_CONTENTS);
   return TRUE;
 }
 

@@ -1,6 +1,6 @@
 /* Manages interpreters for GDB, the GNU debugger.
 
-   Copyright (C) 2000-2018 Free Software Foundation, Inc.
+   Copyright (C) 2000-2019 Free Software Foundation, Inc.
 
    Written by Jim Ingham <jingham@apple.com> of Apple Computer, Inc.
 
@@ -84,7 +84,9 @@ interp::interp (const char *name)
 }
 
 interp::~interp ()
-{}
+{
+  xfree (m_name);
+}
 
 /* An interpreter factory.  Maps an interpreter name to the factory
    function that instantiates an interpreter by that name.  */
@@ -375,7 +377,7 @@ interpreter_exec_cmd (const char *args, int from_tty)
   nrules = prules.count ();
 
   if (nrules < 2)
-    error (_("usage: interpreter-exec <interpreter> [ <command> ... ]"));
+    error (_("Usage: interpreter-exec INTERPRETER [ COMMAND... ]"));
 
   old_interp = ui_interp->current_interpreter;
 

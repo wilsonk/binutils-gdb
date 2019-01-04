@@ -1,6 +1,6 @@
 /* Target-machine dependent code for Renesas H8/300, for GDB.
 
-   Copyright (C) 1988-2018 Free Software Foundation, Inc.
+   Copyright (C) 1988-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -634,7 +634,8 @@ static CORE_ADDR
 h8300_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 		       struct regcache *regcache, CORE_ADDR bp_addr,
 		       int nargs, struct value **args, CORE_ADDR sp,
-		       int struct_return, CORE_ADDR struct_addr)
+		       function_call_return_method return_method,
+		       CORE_ADDR struct_addr)
 {
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
   int stack_alloc = 0, stack_offset = 0;
@@ -657,7 +658,7 @@ h8300_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
      If we're returning a structure by value, then we must pass a
      pointer to the buffer for the return value as an invisible first
      argument.  */
-  if (struct_return)
+  if (return_method == return_method_struct)
     regcache_cooked_write_unsigned (regcache, reg++, struct_addr);
 
   for (argument = 0; argument < nargs; argument++)
@@ -1128,8 +1129,7 @@ h8300_print_registers_info (struct gdbarch *gdbarch, struct ui_file *file,
 static struct type *
 h8300_register_type (struct gdbarch *gdbarch, int regno)
 {
-  if (regno < 0 || regno >= gdbarch_num_regs (gdbarch)
-			    + gdbarch_num_pseudo_regs (gdbarch))
+  if (regno < 0 || regno >= gdbarch_num_cooked_regs (gdbarch))
     internal_error (__FILE__, __LINE__,
 		    _("h8300_register_type: illegal register number %d"),
 		    regno);

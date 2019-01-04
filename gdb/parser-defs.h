@@ -1,6 +1,6 @@
 /* Parser definitions for GDB.
 
-   Copyright (C) 1986-2018 Free Software Foundation, Inc.
+   Copyright (C) 1986-2019 Free Software Foundation, Inc.
 
    Modified from expread.y by the Department of Computer Science at the
    State University of New York at Buffalo.
@@ -233,11 +233,7 @@ union type_stack_elt
 struct type_stack
 {
   /* Elements on the stack.  */
-  union type_stack_elt *elements;
-  /* Current stack depth.  */
-  int depth;
-  /* Allocated size of stack.  */
-  int size;
+  std::vector<union type_stack_elt> elements;
 };
 
 /* Reverse an expression from suffix form (in which it is constructed)

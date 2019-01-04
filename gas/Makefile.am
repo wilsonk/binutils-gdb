@@ -1,6 +1,6 @@
 ## Process this file with automake to generate Makefile.in
 #
-#   Copyright (C) 2012-2018 Free Software Foundation, Inc.
+#   Copyright (C) 2012-2019 Free Software Foundation, Inc.
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -120,7 +120,6 @@ HFILES = \
 	output-file.h \
 	read.h \
 	sb.h \
-	struc-symbol.h \
 	subsegs.h \
 	symbols.h \
 	tc.h \
@@ -432,6 +431,10 @@ check-DEJAGNU: site.exp
 	else echo "WARNING: could not find \`runtest'" 1>&2; :;\
 	fi
 
+development.exp: $(BFDDIR)/development.sh
+	$(EGREP) "[development|experimental]=" $(BFDDIR)/development.sh  \
+	  | $(AWK) -F= '{ print "set " $$1 " " $$2 }' > $@
+
 # The m68k operand parser.
 
 EXTRA_as_new_SOURCES += config/m68k-parse.y
@@ -477,7 +480,7 @@ m68k-parse.h: ; @true
 $(srcdir)/config/m68k-parse.h: ; @true
 
 EXTRA_as_new_SOURCES += config/bfin-parse.y
-bfin-parse.c: $(srcdir)/config/bfin-parse.y
+bfin-parse.c: $(srcdir)/config/bfin-parse.y $(srcdir)/../bfd/reloc.c
 	$(SHELL) $(YLWRAP) $(srcdir)/config/bfin-parse.y y.tab.c bfin-parse.c y.tab.h bfin-parse.h -- $(YACCCOMPILE) -d ;
 bfin-parse.h: bfin-parse.c
 bfin-parse.h: ; @true
@@ -498,14 +501,14 @@ endif
 endif
 
 EXTRA_as_new_SOURCES += config/rl78-parse.y
-rl78-parse.c: $(srcdir)/config/rl78-parse.y
+rl78-parse.c: $(srcdir)/config/rl78-parse.y $(srcdir)/../bfd/reloc.c
 	$(SHELL) $(YLWRAP) $(srcdir)/config/rl78-parse.y y.tab.c rl78-parse.c y.tab.h rl78-parse.h -- $(YACCCOMPILE) -d ;
 rl78-parse.h: rl78-parse.c
 rl78-defs.h: ; @true
 $(srcdir)/config/rl78-defs.h: ; @true
 
 EXTRA_as_new_SOURCES += config/rx-parse.y
-rx-parse.c: $(srcdir)/config/rx-parse.y
+rx-parse.c: $(srcdir)/config/rx-parse.y $(srcdir)/../bfd/reloc.c
 	$(SHELL) $(YLWRAP) $(srcdir)/config/rx-parse.y y.tab.c rx-parse.c y.tab.h rx-parse.h -- $(YACCCOMPILE) -d ;
 rx-parse.h: rx-parse.c
 rx-defs.h: ; @true
@@ -591,7 +594,7 @@ cgen.@OBJEXT@: cgen.c cgen.h cgen-desc.h subsegs.h \
 
 MOSTLYCLEANFILES = $(STAGESTUFF) core \
 	testsuite/*.@OBJEXT@ testsuite/*.out testsuite/gas.log testsuite/gas.sum \
-	testsuite/site.exp site.bak site.exp stage stage1 stage2
+	testsuite/site.exp site.bak site.exp development.exp stage stage1 stage2
 
 .PHONY: install-exec-local install-data-local
 .PHONY: install-exec-bindir install-exec-tooldir
@@ -692,3 +695,5 @@ de-stage3:
 # Reconfigure if configure.tgt changes.
 # development.sh is used to determine -Werror default.
 CONFIG_STATUS_DEPENDENCIES = $(srcdir)/configure.tgt $(BFDDIR)/development.sh
+
+EXTRA_DEJAGNU_SITE_CONFIG = development.exp

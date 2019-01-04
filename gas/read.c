@@ -1,5 +1,5 @@
 /* read.c - read a source file -
-   Copyright (C) 1986-2018 Free Software Foundation, Inc.
+   Copyright (C) 1986-2019 Free Software Foundation, Inc.
 
    This file is part of GAS, the GNU Assembler.
 
@@ -3117,7 +3117,8 @@ do_repeat_with_expander (size_t count,
 	  sub = strstr (processed.ptr, expander);
 	  len = sprintf (sub, "%lu", (unsigned long) count);
 	  gas_assert (len < 8);
-	  strcpy (sub + len, sub + 8);
+	  memmove (sub + len, sub + 8,
+		   processed.ptr + processed.len - (sub + 8));
 	  processed.len -= (8 - len);
 	  sb_add_sb (& many, & processed);
 	  sb_kill (& processed);
@@ -5251,7 +5252,7 @@ s_leb128 (int sign)
 
   do
     {
-      deferred_expression (&exp);
+      expression (&exp);
       emit_leb128_expr (&exp, sign);
     }
   while (*input_line_pointer++ == ',');

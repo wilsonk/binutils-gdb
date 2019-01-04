@@ -3,7 +3,7 @@ dnl
 dnl And be careful when changing it!  If you must add tests with square
 dnl brackets, be sure changequote invocations surround it.
 dnl
-dnl   Copyright (C) 2012-2018 Free Software Foundation, Inc.
+dnl   Copyright (C) 2012-2019 Free Software Foundation, Inc.
 dnl
 dnl This file is free software; you can redistribute it and/or modify
 dnl it under the terms of the GNU General Public License as published by
@@ -110,6 +110,19 @@ AC_ARG_ENABLE(generate_build_notes,
 [case "${enableval}" in
   yes)  ac_default_generate_build_notes=1 ;;
   no)   ac_default_generate_build_notes=0 ;;
+esac])dnl
+
+
+# Decide if the x86 ELF assembler should default to generating GNU x86
+# used ISA and feature properties.
+ac_default_generate_x86_used_note=unset
+# Provide a configuration option to override the default.
+AC_ARG_ENABLE(x86-used-note,
+	      AS_HELP_STRING([--enable-x86-used-note],
+	      [generate GNU x86 used ISA and feature properties]),
+[case "${enableval}" in
+  yes)  ac_default_generate_x86_used_note=1 ;;
+  no)   ac_default_generate_x86_used_note=0 ;;
 esac])dnl
 
 
@@ -433,6 +446,15 @@ changequote([,])dnl
 	;;
 
       nds32)
+	# setup NDS32_LINUX_TOOLCHAIN definition
+	if test "linux" = $em; then
+	  AC_DEFINE(NDS32_LINUX_TOOLCHAIN, 1,
+	    [Define value for nds32_linux_toolchain])
+	else
+	  AC_DEFINE(NDS32_LINUX_TOOLCHAIN, 0,
+	    [Define default value for nds32_linux_toolchain])
+	fi
+
 	# Decide BASELINE, REDUCED_REGS, FPU_DP_EXT, FPU_SP_EXT features
 	# based on arch_name.
 	AC_MSG_CHECKING(for default configuration of --with-arch)
@@ -499,6 +521,26 @@ changequote([,])dnl
 		    [Define default value for nds32_audio_ext])
 	fi
 	AC_MSG_RESULT($enable_audio_ext)
+
+	AC_MSG_CHECKING(for default configuration of --enable-dsp-ext)
+	if test "x${enable_dsp_ext}" = xno; then
+	  AC_DEFINE(NDS32_DEFAULT_DSP_EXT, 0,
+		    [Define value for nds32_dsp_ext])
+	else
+	  AC_DEFINE(NDS32_DEFAULT_DSP_EXT, 1,
+		    [Define default value for nds32_dsp_ext])
+	fi
+	AC_MSG_RESULT($enable_dsp_ext)
+
+	AC_MSG_CHECKING(for default configuration of --enable-zol-ext)
+	if test "x${enable_zol_ext}" = xno; then
+	  AC_DEFINE(NDS32_DEFAULT_ZOL_EXT, 0,
+		    [Define value for nds32_zol_ext])
+	else
+	  AC_DEFINE(NDS32_DEFAULT_ZOL_EXT, 1,
+		    [Define default value for nds32_zol_ext])
+	fi
+	AC_MSG_RESULT($enable_zol_ext)
 	;;
 
       aarch64 | i386 | riscv | s390 | sparc)
@@ -612,6 +654,14 @@ AC_DEFINE_UNQUOTED(DEFAULT_GENERATE_BUILD_NOTES,
   $ac_default_generate_build_notes,
   [Define to 1 if you want to generate GNU Build attribute notes
    by default, if none are contained in the input.])
+
+if test ${ac_default_generate_x86_used_note} = unset; then
+  ac_default_generate_x86_used_note=0
+fi
+AC_DEFINE_UNQUOTED(DEFAULT_X86_USED_NOTE,
+  $ac_default_generate_x86_used_note,
+  [Define to 1 if you want to generate GNU x86 used ISA and feature
+   properties by default.])
 
 if test x$ac_default_compressed_debug_sections = xyes ; then
   AC_DEFINE(DEFAULT_FLAG_COMPRESS_DEBUG, 1, [Define if you want compressed debug sections by default.])

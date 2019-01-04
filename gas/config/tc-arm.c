@@ -1,5 +1,5 @@
 /* tc-arm.c -- Assemble for the ARM
-   Copyright (C) 1994-2018 Free Software Foundation, Inc.
+   Copyright (C) 1994-2019 Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (rwe@pegasus.esprit.ec.org)
 	Modified by David Taylor (dtaylor@armltd.co.uk)
 	Cirrus coprocessor mods by Aldy Hernandez (aldyh@redhat.com)
@@ -256,6 +256,10 @@ static const arm_feature_set arm_ext_v8_2 =
   ARM_FEATURE_CORE_HIGH (ARM_EXT2_V8_2A);
 static const arm_feature_set arm_ext_v8_3 =
   ARM_FEATURE_CORE_HIGH (ARM_EXT2_V8_3A);
+static const arm_feature_set arm_ext_sb =
+  ARM_FEATURE_CORE_HIGH (ARM_EXT2_SB);
+static const arm_feature_set arm_ext_predres =
+  ARM_FEATURE_CORE_HIGH (ARM_EXT2_PREDRES);
 
 static const arm_feature_set arm_arch_any = ARM_ANY;
 #ifdef OBJ_ELF
@@ -15910,6 +15914,8 @@ do_neon_cvt_1 (enum neon_cvt_mode mode)
     /* Half-precision conversions for Advanced SIMD -- neon.  */
     case NS_QD:
     case NS_DQ:
+      if (vfp_or_neon_is_neon (NEON_CHECK_CC | NEON_CHECK_ARCH) == FAIL)
+	return;
 
       if ((rs == NS_DQ)
 	  && (inst.vectype.el[0].size != 16 || inst.vectype.el[1].size != 32))
@@ -21516,6 +21522,21 @@ static const struct asm_opcode insns[] =
  cCE("cfmadda32", e200600, 4, (RMAX, RMAX, RMFX, RMFX), mav_quad),
  cCE("cfmsuba32", e300600, 4, (RMAX, RMAX, RMFX, RMFX), mav_quad),
 
+ /* ARMv8.5-A instructions.  */
+#undef  ARM_VARIANT
+#define ARM_VARIANT   & arm_ext_sb
+#undef  THUMB_VARIANT
+#define THUMB_VARIANT & arm_ext_sb
+ TUF("sb", 57ff070, f3bf8f70, 0, (), noargs, noargs),
+
+#undef  ARM_VARIANT
+#define ARM_VARIANT   & arm_ext_predres
+#undef  THUMB_VARIANT
+#define THUMB_VARIANT & arm_ext_predres
+ CE("cfprctx", e070f93, 1, (RRnpc), rd),
+ CE("dvprctx", e070fb3, 1, (RRnpc), rd),
+ CE("cpprctx", e070ff3, 1, (RRnpc), rd),
+
  /* ARMv8-M instructions.  */
 #undef  ARM_VARIANT
 #define ARM_VARIANT NULL
@@ -26282,62 +26303,63 @@ struct arm_arch_option_table
 
 static const struct arm_arch_option_table arm_archs[] =
 {
-  ARM_ARCH_OPT ("all",		ARM_ANY,	 FPU_ARCH_FPA),
-  ARM_ARCH_OPT ("armv1",	ARM_ARCH_V1,	 FPU_ARCH_FPA),
-  ARM_ARCH_OPT ("armv2",	ARM_ARCH_V2,	 FPU_ARCH_FPA),
-  ARM_ARCH_OPT ("armv2a",	ARM_ARCH_V2S,	 FPU_ARCH_FPA),
-  ARM_ARCH_OPT ("armv2s",	ARM_ARCH_V2S,	 FPU_ARCH_FPA),
-  ARM_ARCH_OPT ("armv3",	ARM_ARCH_V3,	 FPU_ARCH_FPA),
-  ARM_ARCH_OPT ("armv3m",	ARM_ARCH_V3M,	 FPU_ARCH_FPA),
-  ARM_ARCH_OPT ("armv4",	ARM_ARCH_V4,	 FPU_ARCH_FPA),
-  ARM_ARCH_OPT ("armv4xm",	ARM_ARCH_V4xM,	 FPU_ARCH_FPA),
-  ARM_ARCH_OPT ("armv4t",	ARM_ARCH_V4T,	 FPU_ARCH_FPA),
-  ARM_ARCH_OPT ("armv4txm",	ARM_ARCH_V4TxM,	 FPU_ARCH_FPA),
-  ARM_ARCH_OPT ("armv5",	ARM_ARCH_V5,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv5t",	ARM_ARCH_V5T,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv5txm",	ARM_ARCH_V5TxM,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv5te",	ARM_ARCH_V5TE,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv5texp",	ARM_ARCH_V5TExP, FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv5tej",	ARM_ARCH_V5TEJ,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv6",	ARM_ARCH_V6,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv6j",	ARM_ARCH_V6,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv6k",	ARM_ARCH_V6K,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv6z",	ARM_ARCH_V6Z,	 FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("all",		  ARM_ANY,		FPU_ARCH_FPA),
+  ARM_ARCH_OPT ("armv1",	  ARM_ARCH_V1,		FPU_ARCH_FPA),
+  ARM_ARCH_OPT ("armv2",	  ARM_ARCH_V2,		FPU_ARCH_FPA),
+  ARM_ARCH_OPT ("armv2a",	  ARM_ARCH_V2S,		FPU_ARCH_FPA),
+  ARM_ARCH_OPT ("armv2s",	  ARM_ARCH_V2S,		FPU_ARCH_FPA),
+  ARM_ARCH_OPT ("armv3",	  ARM_ARCH_V3,		FPU_ARCH_FPA),
+  ARM_ARCH_OPT ("armv3m",	  ARM_ARCH_V3M,		FPU_ARCH_FPA),
+  ARM_ARCH_OPT ("armv4",	  ARM_ARCH_V4,		FPU_ARCH_FPA),
+  ARM_ARCH_OPT ("armv4xm",	  ARM_ARCH_V4xM,	FPU_ARCH_FPA),
+  ARM_ARCH_OPT ("armv4t",	  ARM_ARCH_V4T,		FPU_ARCH_FPA),
+  ARM_ARCH_OPT ("armv4txm",	  ARM_ARCH_V4TxM,	FPU_ARCH_FPA),
+  ARM_ARCH_OPT ("armv5",	  ARM_ARCH_V5,		FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv5t",	  ARM_ARCH_V5T,		FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv5txm",	  ARM_ARCH_V5TxM,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv5te",	  ARM_ARCH_V5TE,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv5texp",	  ARM_ARCH_V5TExP,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv5tej",	  ARM_ARCH_V5TEJ,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv6",	  ARM_ARCH_V6,		FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv6j",	  ARM_ARCH_V6,		FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv6k",	  ARM_ARCH_V6K,		FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv6z",	  ARM_ARCH_V6Z,		FPU_ARCH_VFP),
   /* The official spelling of this variant is ARMv6KZ, the name "armv6zk" is
      kept to preserve existing behaviour.  */
-  ARM_ARCH_OPT ("armv6kz",	ARM_ARCH_V6KZ,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv6zk",	ARM_ARCH_V6KZ,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv6t2",	ARM_ARCH_V6T2,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv6kt2",	ARM_ARCH_V6KT2,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv6zt2",	ARM_ARCH_V6ZT2,	 FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv6kz",	  ARM_ARCH_V6KZ,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv6zk",	  ARM_ARCH_V6KZ,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv6t2",	  ARM_ARCH_V6T2,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv6kt2",	  ARM_ARCH_V6KT2,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv6zt2",	  ARM_ARCH_V6ZT2,	FPU_ARCH_VFP),
   /* The official spelling of this variant is ARMv6KZ, the name "armv6zkt2" is
      kept to preserve existing behaviour.  */
-  ARM_ARCH_OPT ("armv6kzt2",	ARM_ARCH_V6KZT2, FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv6zkt2",	ARM_ARCH_V6KZT2, FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv6-m",	ARM_ARCH_V6M,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv6s-m",	ARM_ARCH_V6SM,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv7",	ARM_ARCH_V7,	 FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv6kzt2",	  ARM_ARCH_V6KZT2,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv6zkt2",	  ARM_ARCH_V6KZT2,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv6-m",	  ARM_ARCH_V6M,		FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv6s-m",	  ARM_ARCH_V6SM,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv7",	  ARM_ARCH_V7,		FPU_ARCH_VFP),
   /* The official spelling of the ARMv7 profile variants is the dashed form.
      Accept the non-dashed form for compatibility with old toolchains.  */
-  ARM_ARCH_OPT ("armv7a",	ARM_ARCH_V7A,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv7ve",	ARM_ARCH_V7VE,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv7r",	ARM_ARCH_V7R,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv7m",	ARM_ARCH_V7M,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv7-a",	ARM_ARCH_V7A,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv7-r",	ARM_ARCH_V7R,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv7-m",	ARM_ARCH_V7M,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv7e-m",	ARM_ARCH_V7EM,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv8-m.base",	ARM_ARCH_V8M_BASE, FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv8-m.main",	ARM_ARCH_V8M_MAIN, FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv8-a",	ARM_ARCH_V8A,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv8.1-a",	ARM_ARCH_V8_1A,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv8.2-a",	ARM_ARCH_V8_2A,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv8.3-a",	ARM_ARCH_V8_3A,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv8-r",	ARM_ARCH_V8R,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("armv8.4-a",	ARM_ARCH_V8_4A,	 FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("xscale",	ARM_ARCH_XSCALE, FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("iwmmxt",	ARM_ARCH_IWMMXT, FPU_ARCH_VFP),
-  ARM_ARCH_OPT ("iwmmxt2",	ARM_ARCH_IWMMXT2,FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv7a",	  ARM_ARCH_V7A,		FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv7ve",	  ARM_ARCH_V7VE,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv7r",	  ARM_ARCH_V7R,		FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv7m",	  ARM_ARCH_V7M,		FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv7-a",	  ARM_ARCH_V7A,		FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv7-r",	  ARM_ARCH_V7R,		FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv7-m",	  ARM_ARCH_V7M,		FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv7e-m",	  ARM_ARCH_V7EM,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv8-m.base",	  ARM_ARCH_V8M_BASE,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv8-m.main",	  ARM_ARCH_V8M_MAIN,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv8-a",	  ARM_ARCH_V8A,		FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv8.1-a",	  ARM_ARCH_V8_1A,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv8.2-a",	  ARM_ARCH_V8_2A,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv8.3-a",	  ARM_ARCH_V8_3A,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv8-r",	  ARM_ARCH_V8R,		FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv8.4-a",	  ARM_ARCH_V8_4A,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("armv8.5-a",	  ARM_ARCH_V8_5A,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("xscale",	  ARM_ARCH_XSCALE,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("iwmmxt",	  ARM_ARCH_IWMMXT,	FPU_ARCH_VFP),
+  ARM_ARCH_OPT ("iwmmxt2",	  ARM_ARCH_IWMMXT2,	FPU_ARCH_VFP),
   { NULL, 0, ARM_ARCH_NONE, ARM_ARCH_NONE }
 };
 #undef ARM_ARCH_OPT
@@ -26411,12 +26433,18 @@ static const struct arm_option_extension_value_table arm_extensions[] =
   ARM_EXT_OPT ("pan",	ARM_FEATURE_CORE_HIGH (ARM_EXT2_PAN),
 			ARM_FEATURE (ARM_EXT_V8, ARM_EXT2_PAN, 0),
 			ARM_FEATURE_CORE_HIGH (ARM_EXT2_V8A)),
+  ARM_EXT_OPT ("predres", ARM_FEATURE_CORE_HIGH (ARM_EXT2_PREDRES),
+			ARM_FEATURE_CORE_HIGH (ARM_EXT2_PREDRES),
+			ARM_ARCH_V8A),
   ARM_EXT_OPT ("ras",	ARM_FEATURE_CORE_HIGH (ARM_EXT2_RAS),
 			ARM_FEATURE (ARM_EXT_V8, ARM_EXT2_RAS, 0),
 			ARM_FEATURE_CORE_HIGH (ARM_EXT2_V8A)),
   ARM_EXT_OPT ("rdma",  FPU_ARCH_NEON_VFP_ARMV8_1,
 			ARM_FEATURE_COPROC (FPU_NEON_ARMV8 | FPU_NEON_EXT_RDMA),
 			ARM_FEATURE_CORE_HIGH (ARM_EXT2_V8A)),
+  ARM_EXT_OPT ("sb",	ARM_FEATURE_CORE_HIGH (ARM_EXT2_SB),
+			ARM_FEATURE_CORE_HIGH (ARM_EXT2_SB),
+			ARM_ARCH_V8A),
   ARM_EXT_OPT2 ("sec",	ARM_FEATURE_CORE_LOW (ARM_EXT_SEC),
 			ARM_FEATURE_CORE_LOW (ARM_EXT_SEC),
 			ARM_FEATURE_CORE_LOW (ARM_EXT_V6K),
@@ -27046,6 +27074,7 @@ static const cpu_arch_ver_table cpu_arch_ver[] =
     {TAG_CPU_ARCH_V8M_MAIN, ARM_ARCH_V8M_MAIN},
     {TAG_CPU_ARCH_V8R,	    ARM_ARCH_V8R},
     {TAG_CPU_ARCH_V8,	    ARM_ARCH_V8_4A},
+    {TAG_CPU_ARCH_V8,	    ARM_ARCH_V8_5A},
     {-1,		    ARM_ARCH_NONE}
 };
 

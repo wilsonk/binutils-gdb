@@ -1,6 +1,6 @@
 /* Target-dependent code for AMD64.
 
-   Copyright (C) 2001-2018 Free Software Foundation, Inc.
+   Copyright (C) 2001-2019 Free Software Foundation, Inc.
 
    Contributed by Jiri Smid, SuSE Labs.
 
@@ -352,16 +352,12 @@ amd64_pseudo_register_read_value (struct gdbarch *gdbarch,
 				  readable_regcache *regcache,
 				  int regnum)
 {
-  gdb_byte *raw_buf = (gdb_byte *) alloca (register_size (gdbarch, regnum));
   struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
-  enum register_status status;
-  struct value *result_value;
-  gdb_byte *buf;
 
-  result_value = allocate_value (register_type (gdbarch, regnum));
+  value *result_value = allocate_value (register_type (gdbarch, regnum));
   VALUE_LVAL (result_value) = lval_register;
   VALUE_REGNUM (result_value) = regnum;
-  buf = value_contents_raw (result_value);
+  gdb_byte *buf = value_contents_raw (result_value);
 
   if (i386_byte_regnum_p (gdbarch, regnum))
     {
@@ -370,9 +366,11 @@ amd64_pseudo_register_read_value (struct gdbarch *gdbarch,
       /* Extract (always little endian).  */
       if (gpnum >= AMD64_NUM_LOWER_BYTE_REGS)
 	{
+	  gpnum -= AMD64_NUM_LOWER_BYTE_REGS;
+	  gdb_byte raw_buf[register_size (gdbarch, gpnum)];
+
 	  /* Special handling for AH, BH, CH, DH.  */
-	  status = regcache->raw_read (gpnum - AMD64_NUM_LOWER_BYTE_REGS,
-				       raw_buf);
+	  register_status status = regcache->raw_read (gpnum, raw_buf);
 	  if (status == REG_VALID)
 	    memcpy (buf, raw_buf + 1, 1);
 	  else
@@ -381,7 +379,8 @@ amd64_pseudo_register_read_value (struct gdbarch *gdbarch,
 	}
       else
 	{
-	  status = regcache->raw_read (gpnum, raw_buf);
+	  gdb_byte raw_buf[register_size (gdbarch, gpnum)];
+	  register_status status = regcache->raw_read (gpnum, raw_buf);
 	  if (status == REG_VALID)
 	    memcpy (buf, raw_buf, 1);
 	  else
@@ -392,8 +391,9 @@ amd64_pseudo_register_read_value (struct gdbarch *gdbarch,
   else if (i386_dword_regnum_p (gdbarch, regnum))
     {
       int gpnum = regnum - tdep->eax_regnum;
+      gdb_byte raw_buf[register_size (gdbarch, gpnum)];
       /* Extract (always little endian).  */
-      status = regcache->raw_read (gpnum, raw_buf);
+      register_status status = regcache->raw_read (gpnum, raw_buf);
       if (status == REG_VALID)
 	memcpy (buf, raw_buf, 4);
       else
@@ -412,7 +412,6 @@ amd64_pseudo_register_write (struct gdbarch *gdbarch,
 			     struct regcache *regcache,
 			     int regnum, const gdb_byte *buf)
 {
-  gdb_byte *raw_buf = (gdb_byte *) alloca (register_size (gdbarch, regnum));
   struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
 
   if (i386_byte_regnum_p (gdbarch, regnum))
@@ -421,15 +420,20 @@ amd64_pseudo_register_write (struct gdbarch *gdbarch,
 
       if (gpnum >= AMD64_NUM_LOWER_BYTE_REGS)
 	{
+	  gpnum -= AMD64_NUM_LOWER_BYTE_REGS;
+	  gdb_byte raw_buf[register_size (gdbarch, gpnum)];
+
 	  /* Read ... AH, BH, CH, DH.  */
-	  regcache->raw_read (gpnum - AMD64_NUM_LOWER_BYTE_REGS, raw_buf);
+	  regcache->raw_read (gpnum, raw_buf);
 	  /* ... Modify ... (always little endian).  */
 	  memcpy (raw_buf + 1, buf, 1);
 	  /* ... Write.  */
-	  regcache->raw_write (gpnum - AMD64_NUM_LOWER_BYTE_REGS, raw_buf);
+	  regcache->raw_write (gpnum, raw_buf);
 	}
       else
 	{
+	  gdb_byte raw_buf[register_size (gdbarch, gpnum)];
+
 	  /* Read ...  */
 	  regcache->raw_read (gpnum, raw_buf);
 	  /* ... Modify ... (always little endian).  */
@@ -441,6 +445,7 @@ amd64_pseudo_register_write (struct gdbarch *gdbarch,
   else if (i386_dword_regnum_p (gdbarch, regnum))
     {
       int gpnum = regnum - tdep->eax_regnum;
+      gdb_byte raw_buf[register_size (gdbarch, gpnum)];
 
       /* Read ...  */
       regcache->raw_read (gpnum, raw_buf);
@@ -856,8 +861,8 @@ amd64_return_value (struct gdbarch *gdbarch, struct value *function,
 
 
 static CORE_ADDR
-amd64_push_arguments (struct regcache *regcache, int nargs,
-		      struct value **args, CORE_ADDR sp, int struct_return)
+amd64_push_arguments (struct regcache *regcache, int nargs, struct value **args,
+		      CORE_ADDR sp, function_call_return_method return_method)
 {
   static int integer_regnum[] =
   {
@@ -885,7 +890,7 @@ amd64_push_arguments (struct regcache *regcache, int nargs,
   int i;
 
   /* Reserve a register for the "hidden" argument.  */
-  if (struct_return)
+if (return_method == return_method_struct)
     integer_reg++;
 
   for (i = 0; i < nargs; i++)
@@ -991,7 +996,8 @@ static CORE_ADDR
 amd64_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 		       struct regcache *regcache, CORE_ADDR bp_addr,
 		       int nargs, struct value **args,	CORE_ADDR sp,
-		       int struct_return, CORE_ADDR struct_addr)
+		       function_call_return_method return_method,
+		       CORE_ADDR struct_addr)
 {
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
   gdb_byte buf[8];
@@ -1004,10 +1010,10 @@ amd64_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
   i387_reset_bnd_regs (gdbarch, regcache);
 
   /* Pass arguments.  */
-  sp = amd64_push_arguments (regcache, nargs, args, sp, struct_return);
+  sp = amd64_push_arguments (regcache, nargs, args, sp, return_method);
 
   /* Pass "hidden" argument".  */
-  if (struct_return)
+  if (return_method == return_method_struct)
     {
       store_unsigned_integer (buf, 8, byte_order, struct_addr);
       regcache->cooked_write (AMD64_RDI_REGNUM, buf);

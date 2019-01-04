@@ -1,5 +1,5 @@
 /* DWARF 2 support.
-   Copyright (C) 1994-2018 Free Software Foundation, Inc.
+   Copyright (C) 1994-2019 Free Software Foundation, Inc.
 
    Adapted from gdb/dwarf2read.c by Gavin Koch of Cygnus Solutions
    (gavin@cygnus.com).
@@ -527,6 +527,7 @@ read_section (bfd *	      abfd,
   asection *msec;
   const char *section_name = sec->uncompressed_name;
   bfd_byte *contents = *section_buffer;
+  bfd_size_type amt;
 
   /* The section may have already been read.  */
   if (contents == NULL)
@@ -549,7 +550,13 @@ read_section (bfd *	      abfd,
       *section_size = msec->rawsize ? msec->rawsize : msec->size;
       /* Paranoia - alloc one extra so that we can make sure a string
 	 section is NUL terminated.  */
-      contents = (bfd_byte *) bfd_malloc (*section_size + 1);
+      amt = *section_size + 1;
+      if (amt == 0)
+	{
+	  bfd_set_error (bfd_error_no_memory);
+	  return FALSE;
+	}
+      contents = (bfd_byte *) bfd_malloc (amt);
       if (contents == NULL)
 	return FALSE;
       if (syms
@@ -2837,7 +2844,9 @@ find_abstract_instance (struct comp_unit *   unit,
       info_ptr = unit->stash->info_ptr_memory;
       info_ptr_end = unit->stash->info_ptr_end;
       total = info_ptr_end - info_ptr;
-      if (!die_ref || die_ref >= total)
+      if (!die_ref)
+	return TRUE;
+      else if (die_ref >= total)
 	{
 	  _bfd_error_handler
 	    (_("DWARF error: invalid abstract instance DIE ref"));
@@ -2953,7 +2962,7 @@ find_abstract_instance (struct comp_unit *   unit,
 		  break;
 		case DW_AT_specification:
 		  if (!find_abstract_instance (unit, info_ptr, &attr,
-					       pname, is_linkage,
+					       &name, is_linkage,
 					       filename_ptr, linenumber_ptr))
 		    return FALSE;
 		  break;

@@ -1,4 +1,4 @@
-# Copyright (C) 2014-2018 Free Software Foundation, Inc.
+# Copyright (C) 2014-2019 Free Software Foundation, Inc.
 #
 # Copying and distribution of this file, with or without modification,
 # are permitted in any medium without royalty provided the copyright
@@ -155,7 +155,7 @@ SOFT_REGS_RELOC="
 "
 
 cat <<EOF
-/* Copyright (C) 2014-2018 Free Software Foundation, Inc.
+/* Copyright (C) 2014-2019 Free Software Foundation, Inc.
 
    Copying and distribution of this script, with or without modification,
    are permitted in any medium without royalty provided the copyright
@@ -173,7 +173,7 @@ ${RELOCATING+${LIB_SEARCH_DIRS}}
 ${RELOCATING+${EXECUTABLE_SYMBOLS}}
 ${RELOCATING+${MEMORY_DEF}}
 
-PROVIDE (_start = $[$ROM_TOP - $ROM_SIZE + 1]);
+${RELOCATING+PROVIDE (_start = $[$ROM_TOP - $ROM_SIZE + 1]);}
 SECTIONS
 {
   .hash        ${RELOCATING-0} : { *(.hash)		}
@@ -389,7 +389,7 @@ SECTIONS
 
   .install ${RELOCATING-0}:
   {
-    . = __data_section_size;
+    ${RELOCATING+. = __data_section_size;}
   } ${RELOCATING+ > ${TEXT_MEMORY}}
 
   /* Relocation for some bss and data sections.  */
@@ -403,12 +403,11 @@ SECTIONS
     ${RELOCATING+*(.sbss)}
     ${RELOCATING+*(.common)}
     ${RELOCATING+*(.scommon)}
-
-    *(.dynbss)
+    ${RELOCATING+*(.dynbss)}
     *(.bss)
     ${RELOCATING+*(.bss.*)}
     ${RELOCATING+*(.gnu.linkonce.b.*)}
-    *(COMMON)
+    ${RELOCATING+*(COMMON)}
     ${RELOCATING+PROVIDE (_end = .);}
   } ${RELOCATING+ > ${DATA_MEMORY}}
   ${RELOCATING+__bss_size = SIZEOF(.bss);}
@@ -417,7 +416,7 @@ SECTIONS
   .eeprom ${RELOCATING-0} :
   {
     *(.eeprom)
-    *(.eeprom.*)
+    ${RELOCATING+*(.eeprom.*)}
   } ${RELOCATING+ > ${EEPROM_MEMORY}}
 
   ${RELOCATING+${VECTORS}}

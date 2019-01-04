@@ -2,7 +2,7 @@
 
 # Architecture commands for GDB, the GNU debugger.
 #
-# Copyright (C) 1998-2018 Free Software Foundation, Inc.
+# Copyright (C) 1998-2019 Free Software Foundation, Inc.
 #
 # This file is part of GDB.
 #
@@ -480,12 +480,20 @@ m;const char *;register_name;int regnr;regnr;;0
 # use "register_type".
 M;struct type *;register_type;int reg_nr;reg_nr
 
-M;struct frame_id;dummy_id;struct frame_info *this_frame;this_frame
+# Generate a dummy frame_id for THIS_FRAME assuming that the frame is
+# a dummy frame.  A dummy frame is created before an inferior call,
+# the frame_id returned here must match the frame_id that was built
+# for the inferior call.  Usually this means the returned frame_id's
+# stack address should match the address returned by
+# gdbarch_push_dummy_call, and the returned frame_id's code address
+# should match the address at which the breakpoint was set in the dummy
+# frame.
+m;struct frame_id;dummy_id;struct frame_info *this_frame;this_frame;;default_dummy_id;;0
 # Implement DUMMY_ID and PUSH_DUMMY_CALL, then delete
 # deprecated_fp_regnum.
 v;int;deprecated_fp_regnum;;;-1;-1;;0
 
-M;CORE_ADDR;push_dummy_call;struct value *function, struct regcache *regcache, CORE_ADDR bp_addr, int nargs, struct value **args, CORE_ADDR sp, int struct_return, CORE_ADDR struct_addr;function, regcache, bp_addr, nargs, args, sp, struct_return, struct_addr
+M;CORE_ADDR;push_dummy_call;struct value *function, struct regcache *regcache, CORE_ADDR bp_addr, int nargs, struct value **args, CORE_ADDR sp, function_call_return_method return_method, CORE_ADDR struct_addr;function, regcache, bp_addr, nargs, args, sp, return_method, struct_addr
 v;int;call_dummy_location;;;;AT_ENTRY_POINT;;0
 M;CORE_ADDR;push_dummy_code;CORE_ADDR sp, CORE_ADDR funaddr, struct value **args, int nargs, struct type *value_type, CORE_ADDR *real_pc, CORE_ADDR *bp_addr, struct regcache *regcache;sp, funaddr, args, nargs, value_type, real_pc, bp_addr, regcache
 
@@ -596,8 +604,8 @@ m;int;remote_register_number;int regno;regno;;default_remote_register_number;;0
 F;CORE_ADDR;fetch_tls_load_module_address;struct objfile *objfile;objfile
 #
 v;CORE_ADDR;frame_args_skip;;;0;;;0
-M;CORE_ADDR;unwind_pc;struct frame_info *next_frame;next_frame
-M;CORE_ADDR;unwind_sp;struct frame_info *next_frame;next_frame
+m;CORE_ADDR;unwind_pc;struct frame_info *next_frame;next_frame;;default_unwind_pc;;0
+m;CORE_ADDR;unwind_sp;struct frame_info *next_frame;next_frame;;default_unwind_sp;;0
 # DEPRECATED_FRAME_LOCALS_ADDRESS as been replaced by the per-frame
 # frame-base.  Enable frame-base before frame-unwind.
 F;int;frame_num_args;struct frame_info *frame;frame
@@ -707,6 +715,8 @@ f;CORE_ADDR;adjust_dwarf2_addr;CORE_ADDR pc;pc;;default_adjust_dwarf2_addr;;0
 # stop PC.
 f;CORE_ADDR;adjust_dwarf2_line;CORE_ADDR addr, int rel;addr, rel;;default_adjust_dwarf2_line;;0
 v;int;cannot_step_breakpoint;;;0;0;;0
+# See comment in target.h about continuable, steppable and
+# non-steppable watchpoints.
 v;int;have_nonsteppable_watchpoint;;;0;0;;0
 F;int;address_class_type_flags;int byte_size, int dwarf2_addr_class;byte_size, dwarf2_addr_class
 M;const char *;address_class_type_flags_to_name;int type_flags;type_flags
@@ -1325,6 +1335,29 @@ typedef int (iterate_over_objfiles_in_search_order_cb_ftype)
 typedef void (iterate_over_regset_sections_cb)
   (const char *sect_name, int supply_size, int collect_size,
    const struct regset *regset, const char *human_name, void *cb_data);
+
+/* For a function call, does the function return a value using a
+   normal value return or a structure return - passing a hidden
+   argument pointing to storage.  For the latter, there are two
+   cases: language-mandated structure return and target ABI
+   structure return.  */
+
+enum function_call_return_method
+{
+  /* Standard value return.  */
+  return_method_normal = 0,
+
+  /* Language ABI structure return.  This is handled
+     by passing the return location as the first parameter to
+     the function, even preceding "this".  */
+  return_method_hidden_param,
+
+  /* Target ABI struct return.  This is target-specific; for instance,
+     on ia64 the first argument is passed in out0 but the hidden
+     structure return pointer would normally be passed in r8.  */
+  return_method_struct,
+};
+
 EOF
 
 # function typedef's
@@ -1390,9 +1423,6 @@ done
 
 # close it off
 cat <<EOF
-
-/* Definition for an unknown syscall, used basically in error-cases.  */
-#define UNKNOWN_SYSCALL (-1)
 
 extern struct gdbarch_tdep *gdbarch_tdep (struct gdbarch *gdbarch);
 
@@ -1630,6 +1660,14 @@ extern unsigned int gdbarch_debug;
 
 extern void gdbarch_dump (struct gdbarch *gdbarch, struct ui_file *file);
 
+/* Return the number of cooked registers (raw + pseudo) for ARCH.  */
+
+static inline int
+gdbarch_num_cooked_regs (gdbarch *arch)
+{
+  return gdbarch_num_regs (arch) + gdbarch_num_pseudo_regs (arch);
+}
+
 #endif
 EOF
 exec 1>&2
@@ -1660,6 +1698,8 @@ cat <<EOF
 #include "regcache.h"
 #include "objfiles.h"
 #include "auxv.h"
+#include "frame-unwind.h"
+#include "dummy-frame.h"
 
 /* Static function declarations */
 

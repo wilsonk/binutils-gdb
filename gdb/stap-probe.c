@@ -1,6 +1,6 @@
 /* SystemTap probe support for GDB.
 
-   Copyright (C) 2012-2018 Free Software Foundation, Inc.
+   Copyright (C) 2012-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -119,7 +119,7 @@ public:
 
 /* SystemTap static_probe_ops.  */
 
-const stap_static_probe_ops stap_static_probe_ops;
+const stap_static_probe_ops stap_static_probe_ops {};
 
 class stap_probe : public probe
 {

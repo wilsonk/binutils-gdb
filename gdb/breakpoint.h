@@ -1,5 +1,5 @@
 /* Data structures associated with breakpoints in GDB.
-   Copyright (C) 1992-2018 Free Software Foundation, Inc.
+   Copyright (C) 1992-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -1678,5 +1678,8 @@ extern void maybe_print_thread_hit_breakpoint (struct ui_out *uiout);
 
 /* Print the specified breakpoint.  */
 extern void print_breakpoint (breakpoint *bp);
+
+/* Command element for the 'commands' command.  */
+extern cmd_list_element *commands_cmd_element;
 
 #endif /* !defined (BREAKPOINT_H) */

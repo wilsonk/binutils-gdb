@@ -1,6 +1,6 @@
 /* Memory-access and commands for "inferior" process, for GDB.
 
-   Copyright (C) 1986-2018 Free Software Foundation, Inc.
+   Copyright (C) 1986-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -154,7 +154,7 @@ show_inferior_tty_command (struct ui_file *file, int from_tty,
 		      "is \"%s\".\n"), inferior_io_terminal);
 }
 
-char *
+const char *
 get_inferior_args (void)
 {
   if (current_inferior ()->argc != 0)
@@ -1339,19 +1339,15 @@ signal_command (const char *signum_exp, int from_tty)
      of the wrong thread.  */
   if (!non_stop)
     {
-      struct thread_info *tp;
-      ptid_t resume_ptid;
       int must_confirm = 0;
 
       /* This indicates what will be resumed.  Either a single thread,
 	 a whole process, or all threads of all processes.  */
-      resume_ptid = user_visible_resume_ptid (0);
+      ptid_t resume_ptid = user_visible_resume_ptid (0);
 
-      ALL_NON_EXITED_THREADS (tp)
+      for (thread_info *tp : all_non_exited_threads (resume_ptid))
 	{
 	  if (tp->ptid == inferior_ptid)
-	    continue;
-	  if (!tp->ptid.matches (resume_ptid))
 	    continue;
 
 	  if (tp->suspend.stop_signal != GDB_SIGNAL_0
@@ -1552,7 +1548,7 @@ until_next_command (int from_tty)
     {
       sal = find_pc_line (pc, 0);
 
-      tp->control.step_range_start = BLOCK_START (SYMBOL_BLOCK_VALUE (func));
+      tp->control.step_range_start = BLOCK_ENTRY_PC (SYMBOL_BLOCK_VALUE (func));
       tp->control.step_range_end = sal.end;
     }
   tp->control.may_range_step = 1;
@@ -2387,8 +2383,7 @@ default_print_registers_info (struct gdbarch *gdbarch,
 			      int regnum, int print_all)
 {
   int i;
-  const int numregs = gdbarch_num_regs (gdbarch)
-		      + gdbarch_num_pseudo_regs (gdbarch);
+  const int numregs = gdbarch_num_cooked_regs (gdbarch);
 
   for (i = 0; i < numregs; i++)
     {
@@ -2475,8 +2470,7 @@ registers_info (const char *addr_exp, int fpregs)
 	    /* User registers lie completely outside of the range of
 	       normal registers.  Catch them early so that the target
 	       never sees them.  */
-	    if (regnum >= gdbarch_num_regs (gdbarch)
-			  + gdbarch_num_pseudo_regs (gdbarch))
+	    if (regnum >= gdbarch_num_cooked_regs (gdbarch))
 	      {
 		struct value *regval = value_of_user_reg (regnum, frame);
 		const char *regname = user_reg_map_regnum_to_name (gdbarch,
@@ -2515,8 +2509,7 @@ registers_info (const char *addr_exp, int fpregs)
 	    int regnum;
 
 	    for (regnum = 0;
-		 regnum < gdbarch_num_regs (gdbarch)
-			  + gdbarch_num_pseudo_regs (gdbarch);
+		 regnum < gdbarch_num_cooked_regs (gdbarch);
 		 regnum++)
 	      {
 		if (gdbarch_register_reggroup_p (gdbarch, regnum, group))
@@ -2558,10 +2551,7 @@ print_vector_info (struct ui_file *file,
       int regnum;
       int printed_something = 0;
 
-      for (regnum = 0;
-	   regnum < gdbarch_num_regs (gdbarch)
-		    + gdbarch_num_pseudo_regs (gdbarch);
-	   regnum++)
+      for (regnum = 0; regnum < gdbarch_num_cooked_regs (gdbarch); regnum++)
 	{
 	  if (gdbarch_register_reggroup_p (gdbarch, regnum, vector_reggroup))
 	    {
@@ -2626,34 +2616,13 @@ kill_command (const char *arg, int from_tty)
   bfd_cache_close_all ();
 }
 
-/* Used in `attach&' command.  ARG is a point to an integer
-   representing a process id.  Proceed threads of this process iff
+/* Used in `attach&' command.  Proceed threads of inferior INF iff
    they stopped due to debugger request, and when they did, they
-   reported a clean stop (GDB_SIGNAL_0).  Do not proceed threads
-   that have been explicitly been told to stop.  */
-
-static int
-proceed_after_attach_callback (struct thread_info *thread,
-			       void *arg)
-{
-  int pid = * (int *) arg;
-
-  if (thread->ptid.pid () == pid
-      && thread->state != THREAD_EXITED
-      && !thread->executing
-      && !thread->stop_requested
-      && thread->suspend.stop_signal == GDB_SIGNAL_0)
-    {
-      switch_to_thread (thread);
-      clear_proceed_status (0);
-      proceed ((CORE_ADDR) -1, GDB_SIGNAL_DEFAULT);
-    }
-
-  return 0;
-}
+   reported a clean stop (GDB_SIGNAL_0).  Do not proceed threads that
+   have been explicitly been told to stop.  */
 
 static void
-proceed_after_attach (int pid)
+proceed_after_attach (inferior *inf)
 {
   /* Don't error out if the current thread is running, because
      there may be other stopped threads.  */
@@ -2661,7 +2630,15 @@ proceed_after_attach (int pid)
   /* Backup current thread and selected frame.  */
   scoped_restore_current_thread restore_thread;
 
-  iterate_over_threads (proceed_after_attach_callback, &pid);
+  for (thread_info *thread : inf->non_exited_threads ())
+    if (!thread->executing
+	&& !thread->stop_requested
+	&& thread->suspend.stop_signal == GDB_SIGNAL_0)
+      {
+	switch_to_thread (thread);
+	clear_proceed_status (0);
+	proceed ((CORE_ADDR) -1, GDB_SIGNAL_DEFAULT);
+      }
 }
 
 /* See inferior.h.  */
@@ -2728,7 +2705,7 @@ attach_post_wait (const char *args, int from_tty, enum attach_post_wait_mode mod
 	 already running threads.  If a thread has been stopped with a
 	 signal, leave it be.  */
       if (non_stop)
-	proceed_after_attach (inferior->pid);
+	proceed_after_attach (inferior);
       else
 	{
 	  if (inferior_thread ()->suspend.stop_signal == GDB_SIGNAL_0)
@@ -2754,9 +2731,7 @@ attach_post_wait (const char *args, int from_tty, enum attach_post_wait_mode mod
 	target_stop (ptid_t (inferior->pid));
       else if (target_is_non_stop_p ())
 	{
-	  struct thread_info *thread;
 	  struct thread_info *lowest = inferior_thread ();
-	  int pid = current_inferior ()->pid;
 
 	  stop_all_threads ();
 
@@ -2764,15 +2739,10 @@ attach_post_wait (const char *args, int from_tty, enum attach_post_wait_mode mod
 	     stop.  For consistency, always select the thread with
 	     lowest GDB number, which should be the main thread, if it
 	     still exists.  */
-	  ALL_NON_EXITED_THREADS (thread)
-	    {
-	      if (thread->ptid.pid () == pid)
-		{
-		  if (thread->inf->num < lowest->inf->num
-		      || thread->per_inf_num < lowest->per_inf_num)
-		    lowest = thread;
-		}
-	    }
+	  for (thread_info *thread : current_inferior ()->non_exited_threads ())
+	    if (thread->inf->num < lowest->inf->num
+		|| thread->per_inf_num < lowest->per_inf_num)
+	      lowest = thread;
 
 	  switch_to_thread (lowest);
 	}
@@ -3020,11 +2990,6 @@ detach_command (const char *args, int from_tty)
   if (!gdbarch_has_global_solist (target_gdbarch ()))
     no_shared_libraries (NULL, from_tty);
 
-  /* If we still have inferiors to debug, then don't mess with their
-     threads.  */
-  if (!have_inferiors ())
-    init_thread_list ();
-
   if (deprecated_detach_hook)
     deprecated_detach_hook ();
 }
@@ -3110,10 +3075,7 @@ default_print_float_info (struct gdbarch *gdbarch, struct ui_file *file,
   int regnum;
   int printed_something = 0;
 
-  for (regnum = 0;
-       regnum < gdbarch_num_regs (gdbarch)
-	 + gdbarch_num_pseudo_regs (gdbarch);
-       regnum++)
+  for (regnum = 0; regnum < gdbarch_num_cooked_regs (gdbarch); regnum++)
     {
       if (gdbarch_register_reggroup_p (gdbarch, regnum, float_reggroup))
 	{
@@ -3216,6 +3178,14 @@ static void
 info_proc_cmd_exe (const char *args, int from_tty)
 {
   info_proc_cmd_1 (args, IP_EXE, from_tty);
+}
+
+/* Implement `info proc files'.  */
+
+static void
+info_proc_cmd_files (const char *args, int from_tty)
+{
+  info_proc_cmd_1 (args, IP_FILES, from_tty);
 }
 
 /* Implement `info proc all'.  */
@@ -3514,13 +3484,13 @@ in the named register groups."));
 
   add_prefix_cmd ("proc", class_info, info_proc_cmd,
 		  _("\
-Show /proc process information about any running process.\n\
+Show additional information about a process.\n\
 Specify any process id, or use the program being debugged by default."),
 		  &info_proc_cmdlist, "info proc ",
 		  1/*allow-unknown*/, &infolist);
 
   add_cmd ("mappings", class_info, info_proc_cmd_mappings, _("\
-List of mapped memory regions."),
+List memory regions mapped by the specified process."),
 	   &info_proc_cmdlist);
 
   add_cmd ("stat", class_info, info_proc_cmd_stat, _("\
@@ -3532,18 +3502,22 @@ List process info from /proc/PID/status."),
 	   &info_proc_cmdlist);
 
   add_cmd ("cwd", class_info, info_proc_cmd_cwd, _("\
-List current working directory of the process."),
+List current working directory of the specified process."),
 	   &info_proc_cmdlist);
 
   add_cmd ("cmdline", class_info, info_proc_cmd_cmdline, _("\
-List command line arguments of the process."),
+List command line arguments of the specified process."),
 	   &info_proc_cmdlist);
 
   add_cmd ("exe", class_info, info_proc_cmd_exe, _("\
-List absolute filename for executable of the process."),
+List absolute filename for executable of the specified process."),
+	   &info_proc_cmdlist);
+
+  add_cmd ("files", class_info, info_proc_cmd_files, _("\
+List files opened by the specified process."),
 	   &info_proc_cmdlist);
 
   add_cmd ("all", class_info, info_proc_cmd_all, _("\
-List all available /proc info."),
+List all available info about the specified process."),
 	   &info_proc_cmdlist);
 }

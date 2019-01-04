@@ -1,6 +1,6 @@
 /* Target-dependent code for the Toshiba MeP for GDB, the GNU debugger.
 
-   Copyright (C) 2001-2018 Free Software Foundation, Inc.
+   Copyright (C) 2001-2019 Free Software Foundation, Inc.
 
    Contributed by Red Hat, Inc.
 
@@ -48,8 +48,8 @@
 
 /* Get the user's customized MeP coprocessor register names from
    libopcodes.  */
-#include "opcodes/mep-desc.h"
-#include "opcodes/mep-opc.h"
+#include "../opcodes/mep-desc.h"
+#include "../opcodes/mep-opc.h"
 
 
 /* The gdbarch_tdep structure.  */
@@ -1661,14 +1661,13 @@ mep_analyze_prologue (struct gdbarch *gdbarch,
 {
   CORE_ADDR pc;
   unsigned long insn;
-  int rn;
   pv_t reg[MEP_NUM_REGS];
   CORE_ADDR after_last_frame_setup_insn = start_pc;
 
   memset (result, 0, sizeof (*result));
   result->gdbarch = gdbarch;
 
-  for (rn = 0; rn < MEP_NUM_REGS; rn++)
+  for (int rn = 0; rn < MEP_NUM_REGS; rn++)
     {
       reg[rn] = pv_register (rn, 0);
       result->reg_offset[rn] = 1;
@@ -2259,7 +2258,7 @@ static CORE_ADDR
 mep_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
                      struct regcache *regcache, CORE_ADDR bp_addr,
                      int argc, struct value **argv, CORE_ADDR sp,
-                     int struct_return,
+		     function_call_return_method return_method,
                      CORE_ADDR struct_addr)
 {
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
@@ -2288,7 +2287,7 @@ mep_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 
   /* If we're returning a structure by value, push the pointer to the
      buffer as the first argument.  */
-  if (struct_return)
+  if (return_method == return_method_struct)
     {
       regcache_cooked_write_unsigned (regcache, arg_reg, struct_addr);
       arg_reg++;

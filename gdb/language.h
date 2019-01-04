@@ -1,6 +1,6 @@
 /* Source-language-related definitions for GDB.
 
-   Copyright (C) 1991-2018 Free Software Foundation, Inc.
+   Copyright (C) 1991-2019 Free Software Foundation, Inc.
 
    Contributed by the Department of Computer Science at the State University
    of New York at Buffalo.
@@ -706,6 +706,41 @@ public:
 
 private:
 
+  enum language m_lang;
+};
+
+/* If language_mode is language_mode_auto,
+   then switch current language to the language of SYM
+   and restore current language upon destruction.
+
+   Else do nothing.  */
+
+class scoped_switch_to_sym_language_if_auto
+{
+public:
+
+  explicit scoped_switch_to_sym_language_if_auto (const struct symbol *sym)
+  {
+    if (language_mode == language_mode_auto)
+      {
+	m_lang = current_language->la_language;
+	m_switched = true;
+	set_language (SYMBOL_LANGUAGE (sym));
+      }
+    else
+      m_switched = false;
+  }
+
+  ~scoped_switch_to_sym_language_if_auto ()
+  {
+    if (m_switched)
+      set_language (m_lang);
+  }
+
+  DISABLE_COPY_AND_ASSIGN (scoped_switch_to_sym_language_if_auto);
+
+private:
+  bool m_switched;
   enum language m_lang;
 };
 

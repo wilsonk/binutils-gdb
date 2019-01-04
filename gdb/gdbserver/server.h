@@ -1,5 +1,5 @@
 /* Common definitions for remote server for GDB.
-   Copyright (C) 1993-2018 Free Software Foundation, Inc.
+   Copyright (C) 1993-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -176,7 +176,7 @@ struct client_state
 
   /* Whether we should attempt to disable the operating system's address
      space randomization feature before starting an inferior.  */
-  int disable_randomization = 0;
+  int disable_randomization = 1;
 
   int pass_signals[GDB_SIGNAL_LAST];
   int program_signals[GDB_SIGNAL_LAST];

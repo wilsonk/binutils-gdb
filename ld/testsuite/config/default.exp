@@ -1,5 +1,5 @@
 # Basic expect script for LD Regression Tests
-#   Copyright (C) 1993-2018 Free Software Foundation, Inc.
+#   Copyright (C) 1993-2019 Free Software Foundation, Inc.
 #
 # This file is part of the GNU Binutils.
 #
@@ -241,6 +241,10 @@ if ![info exists READELF] then {
 
 if ![info exists READELFFLAGS] then {
     set READELFFLAGS {}
+}
+
+if ![info exists ELFEDIT] then {
+    set ELFEDIT [findfile $base_dir/../binutils/elfedit]
 }
 
 if ![info exists LD] then {

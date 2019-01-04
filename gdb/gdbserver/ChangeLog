@@ -1,3 +1,227 @@
+2019-01-01  Joel Brobecker  <brobecker@adacore.com>
+
+	* gdbreplay.c (gdbreplay_version): Update copyright year in
+	version message.
+	* server.c (gdbserver_version): Likewise.
+
+2018-12-05  Alan Hayward  <alan.hayward@arm.com>
+
+	* linux-low.c (add_lwp): Switch ordering.
+
+2018-11-29  Tom Tromey  <tom@tromey.com>
+
+	* win32-low.c (win32_join): Take pid, not process.
+	* target.h (struct target_ops) <join>: Change argument type.
+	(join_inferior): Change argument name.
+	* spu-low.c (spu_join): Take pid, not process.
+	* server.c (handle_detach): Preserve pid before destroying
+	process.
+	* lynx-low.c (lynx_join): Take pid, not process.
+	* linux-low.c (linux_join): Take pid, not process.
+
+2018-11-23  Alan Hayward  <alan.hayward@arm.com>
+
+	* linux-aarch64-low.c (aarch64_cannot_store_register): Remove.
+	(aarch64_cannot_fetch_register): Likewise.
+	(struct linux_target_ops): Update references.
+
+2018-10-31  Pedro Franco de Carvalho  <pedromfc@linux.ibm.com>
+
+	* linux-ppc-low.c: Include nat/linux-ptrace.h.
+
+2018-10-26  Pedro Franco de Carvalho  <pedromfc@linux.ibm.com>
+
+	* configure.srv (ipa_ppc_linux_regobj): Add
+	powerpc-isa207-htm-vsx32l-ipa.o and
+	powerpc-isa207-htm-vsx64l-ipa.o.
+	(powerpc*-*-linux*): Add powerpc-isa207-htm-vsx32l.o and
+	powerpc-isa207-htm-vsx64l.o to srv_regobj.  Add
+	rs6000/power-htm-spr.xml, rs6000/power-htm-core.xml,
+	rs6000/power64-htm-core.xml, rs6000/power-htm-fpu.xml,
+	rs6000/power-htm-altivec.xml, rs6000/power-htm-vsx.xml,
+	rs6000/power-htm-ppr.xml, rs6000/power-htm-dscr.xml,
+	rs6000/power-htm-tar.xml, rs6000/powerpc-isa207-htm-vsx32l.xml,
+	and rs6000/powerpc-isa207-htm-vsx64l.xml to srv_xmlfiles.
+	* linux-ppc-tdesc-init.h (enum ppc_linux_tdesc)
+	<PPC_TDESC_ISA207_HTM_VSX>: New enum value.
+	(init_registers_powerpc_isa207_htm_vsx32l)
+	(init_registers_powerpc_isa207_htm_vsx64l): Declare.
+	* linux-ppc-low.c (ppc_fill_tm_sprregset, ppc_store_tm_sprregset)
+	(ppc_store_tm_cgprregset, ppc_store_tm_cfprregset)
+	(ppc_store_tm_cvrregset, ppc_store_tm_cvsxregset)
+	(ppc_store_tm_cpprregset, ppc_store_tm_cdscrregset)
+	(ppc_store_tm_ctarregset): New functions.
+	(ppc_regsets): Add entries for HTM regsets.
+	(ppc_arch_setup): Set htm in features struct when needed.  Set
+	sizes for the HTM regsets.
+	(ppc_get_ipa_tdesc_idx): Return PPC_TDESC_ISA207_HTM_VSX.
+	(initialize_low_arch): Call
+	init_registers_powerpc_isa207_htm_vsx32l and
+	init_registers_powerpc_isa207_htm_vsx64l.
+	* linux-ppc-ipa.c (get_ipa_tdesc): Handle
+	PPC_TDESC_ISA207_HTM_VSX.
+	(initialize_low_tracepoint): Call
+	init_registers_powerpc_isa207_htm_vsx32l and
+	init_registers_powerpc_isa207_htm_vsx64l.
+
+2018-10-26  Pedro Franco de Carvalho  <pedromfc@linux.ibm.com>
+
+	* configure.srv (powerpc*-*-linux*): Add rs6000/power-ebb.xml and
+	rs6000/power-linux-pmu.xml to srv_xmlfiles.
+	* linux-ppc-low.c (ppc_store_ebbregset, ppc_fill_pmuregset)
+	(ppc_store_pmuregset): New functions.
+	(ppc_regsets): Add entries for ebb and pmu regsets.
+	(ppc_arch_setup): Set isa207 in features struct if the ebb and
+	pmu regsets are available.  Set sizes for these regsets.
+
+2018-10-26  Pedro Franco de Carvalho  <pedromfc@linux.ibm.com>
+
+	* configure.srv (ipa_ppc_linux_regobj): Add
+	powerpc-isa207-vsx64l-ipa.o and powerpc-isa207-vsx32l-ipa.o.
+	(powerpc*-*-linux*): Add powerpc-isa207-vsx32l.o and
+	powerpc-isa207-vsx64l.o to srv_regobj, add rs6000/power-tar.xml,
+	rs6000/powerpc-isa207-vsx32l.xml, and
+	rs6000/powerpc-isa207-vsx64l.xml to srv_xmlfiles.
+	* linux-ppc-tdesc-init.h (enum ppc_linux_tdesc)
+	<PPC_TDESC_ISA207_VSX>: New enum value.
+	(init_registers_powerpc_isa207_vsx32l): Declare.
+	(init_registers_powerpc_isa207_vsx64l): Declare.
+	* linux-ppc-low.c (ppc_fill_tarregset): New function.
+	(ppc_store_tarregset): New function.
+	(ppc_regsets): Add entry for the TAR regset.
+	(ppc_arch_setup): Set isa207 in features struct when needed.  Set
+	size for the TAR regsets.
+	(ppc_get_ipa_tdesc_idx): Return PPC_TDESC_ISA207_VSX.
+	(initialize_low_arch): Call init_registers_powerpc_isa207_vsx32l
+	and init_registers_powerpc_isa207_vsx64l.
+	* linux-ppc-ipa.c (get_ipa_tdesc): Handle PPC_TDESC_ISA207_VSX.
+	(initialize_low_tracepoint): Call
+	init_registers_powerpc_isa207_vsx32l and
+	init_registers_powerpc_isa207_vsx64l.
+
+2018-10-26  Edjunior Barbosa Machado  <emachado@linux.vnet.ibm.com>
+	    Pedro Franco de Carvalho  <pedromfc@linux.ibm.com>
+
+	* configure.srv (ipa_ppc_linux_regobj): Add
+	powerpc-isa205-ppr-dscr-vsx32l-ipa.o and
+	powerpc-isa205-ppr-dscr-vsx64l-ipa.o.
+	(powerpc*-*-linux*): Add powerpc-isa205-ppr-dscr-vsx32l.o and
+	powerpc-isa205-ppr-dscr-vsx64l.o to srv_regobj, add
+	rs6000/power-dscr.xml, rs6000/power-ppr.xml,
+	rs6000/powerpc-isa205-ppr-dscr-vsx32l.xml and
+	rs6000/powerpc-isa205-ppr-dscr-vsx64l.xml to srv_xmlfiles.
+	* linux-ppc-tdesc-init.h (enum ppc_linux_tdesc)
+	<PPC_TDESC_ISA205_PPR_DSCR_VSX>: New enum value.
+	(init_registers_powerpc_isa205_ppr_dscr_vsx32l)
+	(init_registers_powerpc_isa205_ppr_dscr_vsx64l): Declare.
+	* linux-ppc-low.c: Include "elf/common.h" and <sys/uio.h>.
+	(ppc_hwcap): Add comment.
+	(ppc_hwcap2): New global.
+	(ppc_check_regset, ppc_fill_pprregset, ppc_store_pprregset)
+	(ppc_fill_dscrregset, ppc_store_dscrregset): New functions.
+	(ppc_regsets): Add entries for the DSCR and PPR regsets.
+	(ppc_arch_setup): Get AT_HWCAP2.  Set ppr_dscr in features struct
+	when needed.  Set sizes for the the DSCR and PPR regsets.
+	(ppc_get_ipa_tdesc_idx): Return PPC_TDESC_ISA205_PPR_DSCR_VSX.
+	(initialize_low_arch): Call
+	init_registers_powerpc_isa205_ppr_dscr_vsx32l and
+	init_registers_powerpc_isa205_ppr_dscr_vsx64l.
+	* linux-ppc-ipa.c (get_ipa_tdesc): Handle
+	PPC_TDESC_ISA205_PPR_DSCR_VSX.
+	(initialize_low_tracepoint): Call
+	init_registers_powerpc_isa205_ppr_dscr_vsx32l and
+	init_registers_powerpc_isa205_ppr_dscr_vsx64l.
+
+2018-10-26  Pedro Franco de Carvalho  <pedromfc@linux.ibm.com>
+
+	* linux-ppc-low.c (ppc_fill_vrregset): Remove memset calls.
+
+2018-10-10  Sergio Durigan Junior  <sergiodj@redhat.com>
+	    Simon Marchi <simark@simark.ca>
+
+	* acinclude.m4: Include "../selftest.m4".
+	* configure: Regenerate.
+	* configure.ac: Use "GDB_AC_SELFTEST".
+	* configure.srv: Use "$enable_unittests" instead of
+	"$development" when checking whether unit tests have been
+	enabled.
+	* server.c (captured_main): Update message informing that
+	selftests have been disabled.
+
+2018-10-04  Tom Tromey  <tom@tromey.com>
+
+	* configure: Rebuild.
+
+2018-10-04  Tom Tromey  <tom@tromey.com>
+
+	* server.c (handle_status): Rename inner "thread".
+	(process_serial_event): Declare "res" in 'm' case.
+	* linux-low.c (last_thread_of_process_p, find_lwp_pid)
+	(iterate_over_lwps): Rename inner "thread".
+	(linux_qxfer_libraries_svr4): Rename inner "len".
+	* gdbthread.h (find_thread_in_random): Rename inner "thread".
+
+2018-10-01  Gary Benson <gbenson@redhat.com>
+
+	* gdb_proc_service.h: Moved common code to
+	common/gdb_proc_service.h.
+
+2018-10-01  Gary Benson <gbenson@redhat.com>
+
+	* gdb_proc_service.h: Synchronize comments and whitespace with
+	GDB's version of this file.
+
+2018-09-25  Tom Tromey  <tom@tromey.com>
+
+	* configure: Rebuild.
+	* configure.ac (WARN_CFLAGS): Don't remove -Wmissing-prototypes.
+
+2018-09-16  Simon Marchi  <simon.marchi@polymtl.ca>
+
+	* Makefile.in (gdbserver$(EXEEXT)): Sort OBS.
+	(gdbreplay$(EXEEXT)): Sort GDBREPLAY_OBS.
+	($(IPA_LIB)): Sort IPA_OBJS.
+
+2018-09-16  Simon Marchi  <simon.marchi@polymtl.ca>
+
+	* Makefile.in: Remove references to $(ADD_DEPS).
+
+2018-09-16  Tom Tromey  <tom@tromey.com>
+
+	* remote-utils.c (remote_open): Use GNU style for metasyntactic
+	variables.
+	* gdbreplay.c (gdbreplay_usage): Use GNU style for metasyntactic
+	variables.
+
+2018-09-05  Tom Tromey  <tom@tromey.com>
+
+	* configure: Rebuild.
+
+2018-08-28  Simon Marchi  <simon.marchi@polymtl.ca>
+
+	PR build/23399
+	* tracepoint.c (IPA_SYM_STRUCT_NAME): Define.
+
+2018-08-27  Tom Tromey  <tom@tromey.com>
+
+	PR build/23087:
+	* configure: Rebuild.
+
+2018-08-27  Tom Tromey  <tom@tromey.com>
+
+	* linux-s390-low.c (s390_emit_ext, s390_emit_litpool)
+	(s390_emit_const, s390_emit_reg, s390_emit_zero_ext)
+	(s390_emit_stack_adjust, s390_emit_set_r2, s390x_emit_ext)
+	(s390x_emit_const, s390x_emit_reg, s390x_emit_zero_ext)
+	(s390x_emit_stack_adjust): Add casts to unsigned char.
+
+2018-08-22  Simon Marchi  <simon.marchi@ericsson.com>
+
+	PR gdb/23374
+	PR gdb/23375
+	* server.h (struct client_state) <disable_randomization>:
+	Initialize to 1.
+
 2018-07-22  Simon Marchi  <simon.marchi@polymtl.ca>
 
 	* linux-mips-low.c (mips_collect_ptrace_register): Remove unused

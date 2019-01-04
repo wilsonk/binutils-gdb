@@ -1,5 +1,5 @@
 /* Remote utility routines for the remote server for GDB.
-   Copyright (C) 1986-2018 Free Software Foundation, Inc.
+   Copyright (C) 1986-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -336,7 +336,7 @@ remote_open (const char *name)
   port_str = strchr (name, ':');
 #ifdef USE_WIN32API
   if (port_str == NULL)
-    error ("Only <host>:<port> is supported on this platform.");
+    error ("Only HOST:PORT is supported on this platform.");
 #endif
 
   if (strcmp (name, STDIO_CONNECTION_NAME) == 0)

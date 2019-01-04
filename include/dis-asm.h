@@ -1,6 +1,6 @@
 /* Interface between the opcode library and its callers.
 
-   Copyright (C) 1999-2018 Free Software Foundation, Inc.
+   Copyright (C) 1999-2019 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -277,6 +277,7 @@ typedef int (*disassembler_ftype) (bfd_vma, disassemble_info *);
 /* Disassemblers used out side of opcodes library.  */
 extern int print_insn_m32c		(bfd_vma, disassemble_info *);
 extern int print_insn_mep		(bfd_vma, disassemble_info *);
+extern int print_insn_s12z		(bfd_vma, disassemble_info *);
 extern int print_insn_sh		(bfd_vma, disassemble_info *);
 extern int print_insn_sparc		(bfd_vma, disassemble_info *);
 extern int print_insn_rx		(bfd_vma, disassemble_info *);
@@ -301,9 +302,11 @@ extern void print_wasm32_disassembler_options (FILE *);
 extern bfd_boolean aarch64_symbol_is_valid (asymbol *, struct disassemble_info *);
 extern bfd_boolean arm_symbol_is_valid (asymbol *, struct disassemble_info *);
 extern bfd_boolean csky_symbol_is_valid (asymbol *, struct disassemble_info *);
+extern bfd_boolean riscv_symbol_is_valid (asymbol *, struct disassemble_info *);
 extern void disassemble_init_powerpc (struct disassemble_info *);
 extern void disassemble_init_s390 (struct disassemble_info *);
 extern void disassemble_init_wasm32 (struct disassemble_info *);
+extern void disassemble_init_nds32 (struct disassemble_info *);
 extern const disasm_options_and_args_t *disassembler_options_arm (void);
 extern const disasm_options_and_args_t *disassembler_options_mips (void);
 extern const disasm_options_and_args_t *disassembler_options_powerpc (void);

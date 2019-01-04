@@ -1,5 +1,5 @@
 /* BFD back-end for IBM RS/6000 "XCOFF" files.
-   Copyright (C) 1990-2018 Free Software Foundation, Inc.
+   Copyright (C) 1990-2019 Free Software Foundation, Inc.
    Written by Metin G. Ozisik, Mimi Phuong-Thao Vo, and John Gilmore.
    Archive support from Damon A. Permezel.
    Contributed by IBM Corporation and Cygnus Support.
@@ -114,7 +114,6 @@ extern int rs6000coff_core_file_failing_signal (bfd *abfd);
 #define bfd_pe_print_pdata	NULL
 #endif
 
-#include <stdint.h>
 #include "coffcode.h"
 
 /* The main body of code is in coffcode.h.  */
@@ -3090,7 +3089,7 @@ xcoff_complain_overflow_bitfield_func (bfd *input_bfd,
      relies on it, and it is the only way to write assembler
      code which can run when loaded at a location 0x80000000
      away from the location at which it is linked.  */
-  if (howto->bitsize + howto->rightshift
+  if ((unsigned) howto->bitsize + howto->rightshift
       == bfd_arch_bits_per_address (input_bfd))
     return FALSE;
 
@@ -3457,10 +3456,6 @@ xcoff_ppc_relocate_section (bfd *output_bfd,
 	 which we don't check for.  We must either check at every single
 	 operation, which would be tedious, or we must do the computations
 	 in a type larger than bfd_vma, which would be inefficient.  */
-
-      if ((unsigned int) howto.complain_on_overflow
-	  >= XCOFF_MAX_COMPLAIN_OVERFLOW)
-	abort ();
 
       if (((*xcoff_complain_overflow[howto.complain_on_overflow])
 	   (input_bfd, value_to_relocate, relocation, &howto)))

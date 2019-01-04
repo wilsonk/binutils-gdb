@@ -1,6 +1,6 @@
 /* Branch trace support for GDB, the GNU debugger.
 
-   Copyright (C) 2013-2018 Free Software Foundation, Inc.
+   Copyright (C) 2013-2019 Free Software Foundation, Inc.
 
    Contributed by Intel Corp. <markus.t.metzger@intel.com>
 
@@ -53,11 +53,10 @@ static const target_info record_btrace_target_info = {
 class record_btrace_target final : public target_ops
 {
 public:
-  record_btrace_target ()
-  { to_stratum = record_stratum; }
-
   const target_info &info () const override
   { return record_btrace_target_info; }
+
+  strata stratum () const override { return record_stratum; }
 
   void close () override;
   void async (int) override;
@@ -144,7 +143,7 @@ static record_btrace_target record_btrace_ops;
 
 /* Token associated with a new-thread observer enabling branch tracing
    for the new thread.  */
-static const gdb::observers::token record_btrace_thread_observer_token;
+static const gdb::observers::token record_btrace_thread_observer_token {};
 
 /* Memory access types used in set/show record btrace replay-memory-access.  */
 static const char replay_memory_access_read_only[] = "read-only";
@@ -379,7 +378,6 @@ record_btrace_target_open (const char *args, int from_tty)
   /* If we fail to enable btrace for one thread, disable it for the threads for
      which it was successfully enabled.  */
   scoped_btrace_disable btrace_disable;
-  struct thread_info *tp;
 
   DEBUG ("open");
 
@@ -388,7 +386,7 @@ record_btrace_target_open (const char *args, int from_tty)
   if (!target_has_execution)
     error (_("The program is not being run."));
 
-  ALL_NON_EXITED_THREADS (tp)
+  for (thread_info *tp : all_non_exited_threads ())
     if (args == NULL || *args == 0 || number_is_in_list (args, tp->global_num))
       {
 	btrace_enable (tp, &record_btrace_conf);
@@ -406,13 +404,11 @@ record_btrace_target_open (const char *args, int from_tty)
 void
 record_btrace_target::stop_recording ()
 {
-  struct thread_info *tp;
-
   DEBUG ("stop recording");
 
   record_btrace_auto_disable ();
 
-  ALL_NON_EXITED_THREADS (tp)
+  for (thread_info *tp : all_non_exited_threads ())
     if (tp->btrace.target != NULL)
       btrace_disable (tp);
 }
@@ -437,8 +433,6 @@ record_btrace_target::disconnect (const char *args,
 void
 record_btrace_target::close ()
 {
-  struct thread_info *tp;
-
   if (record_btrace_async_inferior_event_handler != NULL)
     delete_async_event_handler (&record_btrace_async_inferior_event_handler);
 
@@ -448,7 +442,7 @@ record_btrace_target::close ()
 
   /* We should have already stopped recording.
      Tear down btrace in case we have not.  */
-  ALL_NON_EXITED_THREADS (tp)
+  for (thread_info *tp : all_non_exited_threads ())
     btrace_teardown (tp);
 }
 
@@ -1096,7 +1090,8 @@ btrace_call_history_src_line (struct ui_out *uiout,
     return;
 
   uiout->field_string ("file",
-		       symtab_to_filename_for_display (symbol_symtab (sym)));
+		       symtab_to_filename_for_display (symbol_symtab (sym)),
+		       ui_out_style_kind::FILE);
 
   btrace_compute_src_line_range (bfun, &begin, &end);
   if (end < begin)
@@ -1187,11 +1182,14 @@ btrace_call_history (struct ui_out *uiout,
 	}
 
       if (sym != NULL)
-	uiout->field_string ("function", SYMBOL_PRINT_NAME (sym));
+	uiout->field_string ("function", SYMBOL_PRINT_NAME (sym),
+			     ui_out_style_kind::FUNCTION);
       else if (msym != NULL)
-	uiout->field_string ("function", MSYMBOL_PRINT_NAME (msym));
+	uiout->field_string ("function", MSYMBOL_PRINT_NAME (msym),
+			     ui_out_style_kind::FUNCTION);
       else if (!uiout->is_mi_like_p ())
-	uiout->field_string ("function", "??");
+	uiout->field_string ("function", "??",
+			     ui_out_style_kind::FUNCTION);
 
       if ((flags & RECORD_PRINT_INSN_RANGE) != 0)
 	{
@@ -1398,10 +1396,8 @@ record_btrace_target::record_method (ptid_t ptid)
 bool
 record_btrace_target::record_is_replaying (ptid_t ptid)
 {
-  struct thread_info *tp;
-
-  ALL_NON_EXITED_THREADS (tp)
-    if (tp->ptid.matches (ptid) && btrace_is_replaying (tp))
+  for (thread_info *tp : all_non_exited_threads (ptid))
+    if (btrace_is_replaying (tp))
       return true;
 
   return false;
@@ -1967,11 +1963,10 @@ record_btrace_resume_thread (struct thread_info *tp,
 
 /* Get the current frame for TP.  */
 
-static struct frame_info *
-get_thread_current_frame (struct thread_info *tp)
+static struct frame_id
+get_thread_current_frame_id (struct thread_info *tp)
 {
-  struct frame_info *frame;
-  ptid_t old_inferior_ptid;
+  struct frame_id id;
   int executing;
 
   /* Set current thread, which is implicitly used by
@@ -1990,10 +1985,10 @@ get_thread_current_frame (struct thread_info *tp)
   executing = tp->executing;
   set_executing (inferior_ptid, false);
 
-  frame = NULL;
+  id = null_frame_id;
   TRY
     {
-      frame = get_current_frame ();
+      id = get_frame_id (get_current_frame ());
     }
   CATCH (except, RETURN_MASK_ALL)
     {
@@ -2007,7 +2002,7 @@ get_thread_current_frame (struct thread_info *tp)
   /* Restore the previous execution state.  */
   set_executing (inferior_ptid, executing);
 
-  return frame;
+  return id;
 }
 
 /* Start replaying a thread.  */
@@ -2032,13 +2027,11 @@ record_btrace_start_replaying (struct thread_info *tp)
      subroutines after we started replaying.  */
   TRY
     {
-      struct frame_info *frame;
       struct frame_id frame_id;
       int upd_step_frame_id, upd_step_stack_frame_id;
 
       /* The current frame without replaying - computed via normal unwind.  */
-      frame = get_thread_current_frame (tp);
-      frame_id = get_frame_id (frame);
+      frame_id = get_thread_current_frame_id (tp);
 
       /* Check if we need to update any stepping-related frame id's.  */
       upd_step_frame_id = frame_id_eq (frame_id,
@@ -2069,8 +2062,7 @@ record_btrace_start_replaying (struct thread_info *tp)
       registers_changed_thread (tp);
 
       /* The current frame with replaying - computed via btrace unwind.  */
-      frame = get_thread_current_frame (tp);
-      frame_id = get_frame_id (frame);
+      frame_id = get_thread_current_frame_id (tp);
 
       /* Replace stepping related frames where necessary.  */
       if (upd_step_frame_id)
@@ -2133,7 +2125,6 @@ record_btrace_stop_replaying_at_end (struct thread_info *tp)
 void
 record_btrace_target::resume (ptid_t ptid, int step, enum gdb_signal signal)
 {
-  struct thread_info *tp;
   enum btrace_thread_flag flag, cflag;
 
   DEBUG ("resume %s: %s%s", target_pid_to_str (ptid),
@@ -2178,20 +2169,18 @@ record_btrace_target::resume (ptid_t ptid, int step, enum gdb_signal signal)
     {
       gdb_assert (inferior_ptid.matches (ptid));
 
-      ALL_NON_EXITED_THREADS (tp)
-	if (tp->ptid.matches (ptid))
-	  {
-	    if (tp->ptid.matches (inferior_ptid))
-	      record_btrace_resume_thread (tp, flag);
-	    else
-	      record_btrace_resume_thread (tp, cflag);
-	  }
+      for (thread_info *tp : all_non_exited_threads (ptid))
+	{
+	  if (tp->ptid.matches (inferior_ptid))
+	    record_btrace_resume_thread (tp, flag);
+	  else
+	    record_btrace_resume_thread (tp, cflag);
+	}
     }
   else
     {
-      ALL_NON_EXITED_THREADS (tp)
-	if (tp->ptid.matches (ptid))
-	  record_btrace_resume_thread (tp, flag);
+      for (thread_info *tp : all_non_exited_threads (ptid))
+	record_btrace_resume_thread (tp, flag);
     }
 
   /* Async support.  */
@@ -2548,16 +2537,9 @@ record_btrace_target::wait (ptid_t ptid, struct target_waitstatus *status,
     }
 
   /* Keep a work list of moving threads.  */
-  {
-    thread_info *tp;
-
-    ALL_NON_EXITED_THREADS (tp)
-      {
-	if (tp->ptid.matches (ptid)
-	    && ((tp->btrace.flags & (BTHR_MOVE | BTHR_STOP)) != 0))
-	  moving.push_back (tp);
-      }
-  }
+  for (thread_info *tp : all_non_exited_threads (ptid))
+    if ((tp->btrace.flags & (BTHR_MOVE | BTHR_STOP)) != 0)
+      moving.push_back (tp);
 
   if (moving.empty ())
     {
@@ -2638,9 +2620,7 @@ record_btrace_target::wait (ptid_t ptid, struct target_waitstatus *status,
   /* Stop all other threads. */
   if (!target_is_non_stop_p ())
     {
-      thread_info *tp;
-
-      ALL_NON_EXITED_THREADS (tp)
+      for (thread_info *tp : all_non_exited_threads ())
 	record_btrace_cancel_resume (tp);
     }
 
@@ -2677,14 +2657,11 @@ record_btrace_target::stop (ptid_t ptid)
     }
   else
     {
-      struct thread_info *tp;
-
-      ALL_NON_EXITED_THREADS (tp)
-       if (tp->ptid.matches (ptid))
-         {
-           tp->btrace.flags &= ~BTHR_MOVE;
-           tp->btrace.flags |= BTHR_STOP;
-         }
+      for (thread_info *tp : all_non_exited_threads (ptid))
+	{
+	  tp->btrace.flags &= ~BTHR_MOVE;
+	  tp->btrace.flags |= BTHR_STOP;
+	}
     }
  }
 
@@ -2877,9 +2854,7 @@ record_btrace_target::goto_record (ULONGEST insn)
 void
 record_btrace_target::record_stop_replaying ()
 {
-  struct thread_info *tp;
-
-  ALL_NON_EXITED_THREADS (tp)
+  for (thread_info *tp : all_non_exited_threads ())
     record_btrace_stop_replaying (tp);
 }
 
@@ -2973,10 +2948,10 @@ cmd_record_btrace_start (const char *args, int from_tty)
 	{
 	  execute_command ("target record-btrace", from_tty);
 	}
-      CATCH (exception, RETURN_MASK_ALL)
+      CATCH (ex, RETURN_MASK_ALL)
 	{
 	  record_btrace_conf.format = BTRACE_FORMAT_NONE;
-	  throw_exception (exception);
+	  throw_exception (ex);
 	}
       END_CATCH
     }

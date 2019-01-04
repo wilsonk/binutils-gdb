@@ -1,5 +1,5 @@
 /* ldexp.h -
-   Copyright (C) 1991-2018 Free Software Foundation, Inc.
+   Copyright (C) 1991-2019 Free Software Foundation, Inc.
 
    This file is part of the GNU Binutils.
 
@@ -229,8 +229,8 @@ void exp_print_tree
   (etree_type *);
 bfd_vma exp_get_vma
   (etree_type *, bfd_vma, char *);
-int exp_get_value_int
-  (etree_type *, int, char *);
+int exp_get_power
+  (etree_type *, char *);
 fill_type *exp_get_fill
   (etree_type *, fill_type *, char *);
 bfd_vma exp_get_abs_int

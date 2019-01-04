@@ -1,5 +1,5 @@
 /* BFD library support routines for architectures.
-   Copyright (C) 1990-2018 Free Software Foundation, Inc.
+   Copyright (C) 1990-2019 Free Software Foundation, Inc.
    Hacked by John Gilmore and Steve Chamberlain of Cygnus Support.
 
    This file is part of BFD, the Binary File Descriptor library.
@@ -175,7 +175,9 @@ DESCRIPTION
 .#define bfd_mach_mips5			5
 .#define bfd_mach_mips_loongson_2e	3001
 .#define bfd_mach_mips_loongson_2f	3002
-.#define bfd_mach_mips_loongson_3a	3003
+.#define bfd_mach_mips_gs464		3003
+.#define bfd_mach_mips_gs464e		3004
+.#define bfd_mach_mips_gs264e		3005
 .#define bfd_mach_mips_sb1		12310201 {* octal 'SB', 01.  *}
 .#define bfd_mach_mips_octeon		6501
 .#define bfd_mach_mips_octeonp		6601
@@ -894,12 +896,13 @@ bfd_arch_get_compatible (const bfd *abfd,
     /* Otherwise architecture-specific code has to decide.  */
     return abfd->arch_info->compatible (abfd->arch_info, bbfd->arch_info);
 
-  /* We can allow an unknown architecture if accept_unknowns
-     is true, or if the target is the "binary" format, which
-     has an unknown architecture.  Since the binary format can
+  /* We can allow an unknown architecture if accept_unknowns is true,
+     if UBFD is an IR object, or if the target is the "binary" format,
+     which has an unknown architecture.  Since the binary format can
      only be set by explicit request from the user, it is safe
      to assume that they know what they are doing.  */
   if (accept_unknowns
+      || ubfd->plugin_format == bfd_plugin_yes
       || strcmp (bfd_get_target (ubfd), "binary") == 0)
     return kbfd->arch_info;
   return NULL;

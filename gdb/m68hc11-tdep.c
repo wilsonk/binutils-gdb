@@ -1,6 +1,6 @@
 /* Target-dependent code for Motorola 68HC11 & 68HC12
 
-   Copyright (C) 1999-2018 Free Software Foundation, Inc.
+   Copyright (C) 1999-2019 Free Software Foundation, Inc.
 
    Contributed by Stephane Carrez, stcarrez@nerim.fr
 
@@ -854,10 +854,7 @@ m68hc11_frame_unwind_cache (struct frame_info *this_frame,
 
   /* Adjust all the saved registers so that they contain addresses and not
      offsets.  */
-  for (i = 0;
-       i < gdbarch_num_regs (gdbarch)
-	   + gdbarch_num_pseudo_regs (gdbarch) - 1;
-       i++)
+  for (i = 0; i < gdbarch_num_cooked_regs (gdbarch); i++)
     if (trad_frame_addr_p (info->saved_regs, i))
       {
         info->saved_regs[i].addr += this_base;
@@ -1157,7 +1154,8 @@ static CORE_ADDR
 m68hc11_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
                          struct regcache *regcache, CORE_ADDR bp_addr,
                          int nargs, struct value **args, CORE_ADDR sp,
-                         int struct_return, CORE_ADDR struct_addr)
+			 function_call_return_method return_method,
+			 CORE_ADDR struct_addr)
 {
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
   int argnum;
@@ -1167,10 +1165,8 @@ m68hc11_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
   gdb_byte buf[2];
   
   first_stack_argnum = 0;
-  if (struct_return)
-    {
-      regcache_cooked_write_unsigned (regcache, HARD_D_REGNUM, struct_addr);
-    }
+  if (return_method == return_method_struct)
+    regcache_cooked_write_unsigned (regcache, HARD_D_REGNUM, struct_addr);
   else if (nargs > 0)
     {
       type = value_type (args[0]);

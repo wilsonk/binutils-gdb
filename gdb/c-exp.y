@@ -1,5 +1,5 @@
 /* YACC parser for C expressions, for GDB.
-   Copyright (C) 1986-2018 Free Software Foundation, Inc.
+   Copyright (C) 1986-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -113,6 +113,7 @@ static int type_aggregate_p (struct type *);
 static int parse_number (struct parser_state *par_state,
 			 const char *, int, int, YYSTYPE *);
 static struct stoken operator_stoken (const char *);
+static struct stoken typename_stoken (const char *);
 static void check_parameter_typelist (VEC (type_ptr) *);
 static void write_destructor_name (struct parser_state *par_state,
 				   struct stoken);
@@ -156,7 +157,7 @@ static void c_print_token (FILE *file, int type, YYSTYPE value);
 %token <voidval> COMPLETE
 %token <tsym> TYPENAME
 %token <theclass> CLASSNAME	/* ObjC Class name */
-%type <sval> name
+%type <sval> name field_name
 %type <svec> string_exp
 %type <ssym> name_not_typename
 %type <tsym> type_name
@@ -312,13 +313,13 @@ exp	:	ALIGNOF '(' type_exp ')'	%prec UNARY
 			{ write_exp_elt_opcode (pstate, UNOP_ALIGNOF); }
 	;
 
-exp	:	exp ARROW name
+exp	:	exp ARROW field_name
 			{ write_exp_elt_opcode (pstate, STRUCTOP_PTR);
 			  write_exp_string (pstate, $3);
 			  write_exp_elt_opcode (pstate, STRUCTOP_PTR); }
 	;
 
-exp	:	exp ARROW name COMPLETE
+exp	:	exp ARROW field_name COMPLETE
 			{ mark_struct_expression (pstate);
 			  write_exp_elt_opcode (pstate, STRUCTOP_PTR);
 			  write_exp_string (pstate, $3);
@@ -360,13 +361,13 @@ exp	:	exp ARROW_STAR exp
 			{ write_exp_elt_opcode (pstate, STRUCTOP_MPTR); }
 	;
 
-exp	:	exp '.' name
+exp	:	exp '.' field_name
 			{ write_exp_elt_opcode (pstate, STRUCTOP_STRUCT);
 			  write_exp_string (pstate, $3);
 			  write_exp_elt_opcode (pstate, STRUCTOP_STRUCT); }
 	;
 
-exp	:	exp '.' name COMPLETE
+exp	:	exp '.' field_name COMPLETE
 			{ mark_struct_expression (pstate);
 			  write_exp_elt_opcode (pstate, STRUCTOP_STRUCT);
 			  write_exp_string (pstate, $3);
@@ -1224,7 +1225,17 @@ func_mod:	'(' ')'
 type	:	ptype
 	;
 
-typebase  /* Implements (approximately): (type-qualifier)* type-specifier */
+/* Implements (approximately): (type-qualifier)* type-specifier.
+
+   When type-specifier is only ever a single word, like 'float' then these
+   arrive as pre-built TYPENAME tokens thanks to the classify_name
+   function.  However, when a type-specifier can contain multiple words,
+   for example 'double' can appear as just 'double' or 'long double', and
+   similarly 'long' can appear as just 'long' or in 'long double', then
+   these type-specifiers are parsed into their own tokens in the function
+   lex_one_token and the ident_tokens array.  These separate tokens are all
+   recognised here.  */
+typebase
 	:	TYPENAME
 			{ $$ = $1.type; }
 	|	INT_KEYWORD
@@ -1635,7 +1646,22 @@ oper:	OPERATOR NEW
 			}
 	;
 
-
+/* This rule exists in order to allow some tokens that would not normally
+   match the 'name' rule to appear as fields within a struct.  The example
+   that initially motivated this was the RISC-V target which models the
+   floating point registers as a union with fields called 'float' and
+   'double'.  The 'float' string becomes a TYPENAME token and can appear
+   anywhere a 'name' can, however 'double' is its own token,
+   DOUBLE_KEYWORD, and doesn't match the 'name' rule.*/
+field_name
+	:	name
+	|	DOUBLE_KEYWORD { $$ = typename_stoken ("double"); }
+	|	INT_KEYWORD { $$ = typename_stoken ("int"); }
+	|	LONG { $$ = typename_stoken ("long"); }
+	|	SHORT { $$ = typename_stoken ("short"); }
+	|	SIGNED_KEYWORD { $$ = typename_stoken ("signed"); }
+	|	UNSIGNED { $$ = typename_stoken ("unsigned"); }
+	;
 
 name	:	NAME { $$ = $1.stoken; }
 	|	BLOCKNAME { $$ = $1.stoken; }
@@ -1707,6 +1733,16 @@ operator_stoken (const char *op)
   return st;
 };
 
+/* Returns a stoken of the type named TYPE.  */
+
+static struct stoken
+typename_stoken (const char *type)
+{
+  struct stoken st = { type, 0 };
+  st.length = strlen (type);
+  return st;
+};
+
 /* Return true if the type is aggregate-like.  */
 
 static int
@@ -1760,10 +1796,8 @@ static int
 parse_number (struct parser_state *par_state,
 	      const char *buf, int len, int parsed_float, YYSTYPE *putithere)
 {
-  /* FIXME: Shouldn't these be unsigned?  We don't deal with negative values
-     here, and we do kind of silly things like cast to unsigned.  */
-  LONGEST n = 0;
-  LONGEST prevn = 0;
+  ULONGEST n = 0;
+  ULONGEST prevn = 0;
   ULONGEST un;
 
   int i = 0;
@@ -1922,7 +1956,7 @@ parse_number (struct parser_state *par_state,
 	 on 0x123456789 when LONGEST is 32 bits.  */
       if (c != 'l' && c != 'u' && n != 0)
 	{	
-	  if ((unsigned_p && (ULONGEST) prevn >= (ULONGEST) n))
+	  if (unsigned_p && prevn >= n)
 	    error (_("Numeric constant too large."));
 	}
       prevn = n;
@@ -1940,7 +1974,7 @@ parse_number (struct parser_state *par_state,
      the case where it is we just always shift the value more than
      once, with fewer bits each time.  */
 
-  un = (ULONGEST)n >> 2;
+  un = n >> 2;
   if (long_p == 0
       && (un >> (gdbarch_int_bit (parse_gdbarch (par_state)) - 2)) == 0)
     {
@@ -2325,7 +2359,10 @@ static const struct token tokentab2[] =
     {".*", DOT_STAR, BINOP_END, FLAG_CXX}
   };
 
-/* Identifier-like tokens.  */
+/* Identifier-like tokens.  Only type-specifiers than can appear in
+   multi-word type names (for example 'double' can appear in 'long
+   double') need to be listed here.  type-specifiers that are only ever
+   single word (like 'float') are handled by the classify_name function.  */
 static const struct token ident_tokens[] =
   {
     {"unsigned", UNSIGNED, OP_NULL, 0},
@@ -2662,7 +2699,6 @@ lex_one_token (struct parser_state *par_state, bool *is_quoted_name)
     case '@':
       {
 	const char *p = &tokstart[1];
-	size_t len = strlen ("entry");
 
 	if (parse_language (par_state)->la_language == language_objc)
 	  {
@@ -2680,6 +2716,7 @@ lex_one_token (struct parser_state *par_state, bool *is_quoted_name)
 
 	while (ISSPACE (*p))
 	  p++;
+	size_t len = strlen ("entry");
 	if (strncmp (p, "entry", len) == 0 && !c_ident_is_alnum (p[len])
 	    && p[len] != '_')
 	  {
@@ -2854,17 +2891,15 @@ lex_one_token (struct parser_state *par_state, bool *is_quoted_name)
 }
 
 /* An object of this type is pushed on a FIFO by the "outer" lexer.  */
-typedef struct
+struct token_and_value
 {
   int token;
   YYSTYPE value;
-} token_and_value;
-
-DEF_VEC_O (token_and_value);
+};
 
 /* A FIFO of tokens that have been read but not yet returned to the
    parser.  */
-static VEC (token_and_value) *token_fifo;
+static std::vector<token_and_value> token_fifo;
 
 /* Non-zero if the lexer should return tokens from the FIFO.  */
 static int popping;
@@ -3089,7 +3124,7 @@ yylex (void)
   const struct block *search_block;
   bool is_quoted_name, last_lex_was_structop;
 
-  if (popping && !VEC_empty (token_and_value, token_fifo))
+  if (popping && !token_fifo.empty ())
     goto do_pop;
   popping = 0;
 
@@ -3110,7 +3145,7 @@ yylex (void)
   /* Read any sequence of alternating "::" and name-like tokens into
      the token FIFO.  */
   current.value = yylval;
-  VEC_safe_push (token_and_value, token_fifo, &current);
+  token_fifo.push_back (current);
   last_was_coloncolon = current.token == COLONCOLON;
   while (1)
     {
@@ -3120,7 +3155,7 @@ yylex (void)
 	 Subsequent ones do not have any special meaning.  */
       current.token = lex_one_token (pstate, &ignore);
       current.value = yylval;
-      VEC_safe_push (token_and_value, token_fifo, &current);
+      token_fifo.push_back (current);
 
       if ((last_was_coloncolon && current.token != NAME)
 	  || (!last_was_coloncolon && current.token != COLONCOLON))
@@ -3131,10 +3166,10 @@ yylex (void)
 
   /* We always read one extra token, so compute the number of tokens
      to examine accordingly.  */
-  last_to_examine = VEC_length (token_and_value, token_fifo) - 2;
+  last_to_examine = token_fifo.size () - 2;
   next_to_examine = 0;
 
-  current = *VEC_index (token_and_value, token_fifo, next_to_examine);
+  current = token_fifo[next_to_examine];
   ++next_to_examine;
 
   name_obstack.clear ();
@@ -3158,16 +3193,16 @@ yylex (void)
 
   while (next_to_examine <= last_to_examine)
     {
-      token_and_value *next;
+      token_and_value next;
 
-      next = VEC_index (token_and_value, token_fifo, next_to_examine);
+      next = token_fifo[next_to_examine];
       ++next_to_examine;
 
-      if (next->token == NAME && last_was_coloncolon)
+      if (next.token == NAME && last_was_coloncolon)
 	{
 	  int classification;
 
-	  yylval = next->value;
+	  yylval = next.value;
 	  classification = classify_inner_name (pstate, search_block,
 						context_type);
 	  /* We keep going until we either run out of names, or until
@@ -3184,8 +3219,8 @@ yylex (void)
 	      /* We don't want to put a leading "::" into the name.  */
 	      obstack_grow_str (&name_obstack, "::");
 	    }
-	  obstack_grow (&name_obstack, next->value.sval.ptr,
-			next->value.sval.length);
+	  obstack_grow (&name_obstack, next.value.sval.ptr,
+			next.value.sval.length);
 
 	  yylval.sval.ptr = (const char *) obstack_base (&name_obstack);
 	  yylval.sval.length = obstack_object_size (&name_obstack);
@@ -3199,7 +3234,7 @@ yylex (void)
 
 	  context_type = yylval.tsym.type;
 	}
-      else if (next->token == COLONCOLON && !last_was_coloncolon)
+      else if (next.token == COLONCOLON && !last_was_coloncolon)
 	last_was_coloncolon = 1;
       else
 	{
@@ -3217,14 +3252,15 @@ yylex (void)
 					current.value.sval.ptr,
 					current.value.sval.length);
 
-      VEC_replace (token_and_value, token_fifo, 0, &current);
+      token_fifo[0] = current;
       if (checkpoint > 1)
-	VEC_block_remove (token_and_value, token_fifo, 1, checkpoint - 1);
+	token_fifo.erase (token_fifo.begin () + 1,
+			  token_fifo.begin () + checkpoint);
     }
 
  do_pop:
-  current = *VEC_index (token_and_value, token_fifo, 0);
-  VEC_ordered_remove (token_and_value, token_fifo, 0);
+  current = token_fifo[0];
+  token_fifo.erase (token_fifo.begin ());
   yylval = current.value;
   return current.token;
 }
@@ -3266,7 +3302,7 @@ c_parse (struct parser_state *par_state)
   last_was_structop = false;
   saw_name_at_eof = 0;
 
-  VEC_free (token_and_value, token_fifo);
+  token_fifo.clear ();
   popping = 0;
   name_obstack.clear ();
 

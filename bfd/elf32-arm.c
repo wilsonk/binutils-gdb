@@ -1,5 +1,5 @@
 /* 32-bit ELF support for ARM
-   Copyright (C) 1998-2018 Free Software Foundation, Inc.
+   Copyright (C) 1998-2019 Free Software Foundation, Inc.
 
    This file is part of BFD, the Binary File Descriptor library.
 
@@ -22,7 +22,6 @@
 #include <limits.h>
 
 #include "bfd.h"
-#include "bfd_stdint.h"
 #include "libiberty.h"
 #include "libbfd.h"
 #include "elf-bfd.h"
@@ -6449,7 +6448,8 @@ elf32_arm_size_stubs (bfd *output_bfd,
 	  asection *section;
 	  Elf_Internal_Sym *local_syms = NULL;
 
-	  if (!is_arm_elf (input_bfd))
+	  if (!is_arm_elf (input_bfd)
+	      || (elf_dyn_lib_class (input_bfd) & DYN_AS_NEEDED) != 0)
 	    continue;
 
 	  num_a8_relocs = 0;

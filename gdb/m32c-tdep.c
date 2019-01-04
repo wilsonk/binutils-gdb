@@ -1,6 +1,6 @@
 /* Renesas M32C target-dependent code for GDB, the GNU debugger.
 
-   Copyright (C) 2004-2018 Free Software Foundation, Inc.
+   Copyright (C) 2004-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -1236,7 +1236,7 @@ m32c_decode_srcdest4 (struct m32c_pv_state *st,
 
   switch (code)
     {
-    case 0x0: sd.reg = (size == 1 ? &st->r0 : &st->r0); break;
+    case 0x0: sd.reg = &st->r0; break;
     case 0x1: sd.reg = (size == 1 ? &st->r0 : &st->r1); break;
     case 0x2: sd.reg = (size == 1 ? &st->r1 : &st->r2); break;
     case 0x3: sd.reg = (size == 1 ? &st->r1 : &st->r3); break;
@@ -2016,7 +2016,8 @@ m32c_reg_arg_type (struct type *type)
 static CORE_ADDR
 m32c_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 		      struct regcache *regcache, CORE_ADDR bp_addr, int nargs,
-		      struct value **args, CORE_ADDR sp, int struct_return,
+		      struct value **args, CORE_ADDR sp,
+		      function_call_return_method return_method,
 		      CORE_ADDR struct_addr)
 {
   struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
@@ -2054,7 +2055,7 @@ m32c_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
   /* First, if the function returns an aggregate by value, push a
      pointer to a buffer for it.  This doesn't affect the way
      subsequent arguments are allocated to registers.  */
-  if (struct_return)
+  if (return_method == return_method_struct)
     {
       int ptr_len = TYPE_LENGTH (tdep->ptr_voyd);
       sp -= ptr_len;

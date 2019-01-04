@@ -1,6 +1,6 @@
 /* Work with executable files, for GDB. 
 
-   Copyright (C) 1988-2018 Free Software Foundation, Inc.
+   Copyright (C) 1988-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -60,11 +60,10 @@ Specify the filename of the executable file.")
 
 struct exec_target final : public target_ops
 {
-  exec_target ()
-  { to_stratum = file_stratum; }
-
   const target_info &info () const override
   { return exec_target_info; }
+
+  strata stratum () const override { return file_stratum; }
 
   void close () override;
   enum target_xfer_status xfer_partial (enum target_object object,
@@ -149,10 +148,7 @@ void
 try_open_exec_file (const char *exec_file_host, struct inferior *inf,
 		    symfile_add_flags add_flags)
 {
-  struct cleanup *old_chain;
   struct gdb_exception prev_err = exception_none;
-
-  old_chain = make_cleanup (free_current_contents, &prev_err.message);
 
   /* exec_file_attach and symbol_file_add_main may throw an error if the file
      cannot be opened either locally or remotely.
@@ -165,6 +161,7 @@ try_open_exec_file (const char *exec_file_host, struct inferior *inf,
      Even without a symbol file, the remote-based debugging session should
      continue normally instead of ending abruptly.  Hence we catch thrown
      errors/exceptions in the following code.  */
+  std::string saved_message;
   TRY
     {
       /* We must do this step even if exec_file_host is NULL, so that
@@ -180,7 +177,10 @@ try_open_exec_file (const char *exec_file_host, struct inferior *inf,
 
       /* Save message so it doesn't get trashed by the catch below.  */
       if (err.message != NULL)
-	prev_err.message = xstrdup (err.message);
+	{
+	  saved_message = err.message;
+	  prev_err.message = saved_message.c_str ();
+	}
     }
   END_CATCH
 
@@ -197,8 +197,6 @@ try_open_exec_file (const char *exec_file_host, struct inferior *inf,
 	}
       END_CATCH
     }
-
-  do_cleanups (old_chain);
 }
 
 /* See gdbcore.h.  */
@@ -362,7 +360,7 @@ exec_file_attach (const char *filename, int from_tty)
 	  exec_close ();
 	  error (_("\"%s\": not in executable format: %s"),
 		 scratch_pathname,
-		 gdb_bfd_errmsg (bfd_get_error (), matching));
+		 gdb_bfd_errmsg (bfd_get_error (), matching).c_str ());
 	}
 
       if (build_section_table (exec_bfd, &sections, &sections_end))

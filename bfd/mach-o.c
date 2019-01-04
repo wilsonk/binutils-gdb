@@ -1,5 +1,5 @@
 /* Mach-O support for BFD.
-   Copyright (C) 1999-2018 Free Software Foundation, Inc.
+   Copyright (C) 1999-2019 Free Software Foundation, Inc.
 
    This file is part of BFD, the Binary File Descriptor library.
 
@@ -19,10 +19,10 @@
    MA 02110-1301, USA.  */
 
 #include "sysdep.h"
-#include "mach-o.h"
 #include "bfd.h"
 #include "libbfd.h"
 #include "libiberty.h"
+#include "mach-o.h"
 #include "aout/stab_gnu.h"
 #include "mach-o/reloc.h"
 #include "mach-o/external.h"
@@ -2497,10 +2497,13 @@ bfd_mach_o_mangle_symbols (bfd *abfd)
 	    }
 	  else
 	    s->n_type = BFD_MACH_O_N_SECT;
-
-	  if (s->symbol.flags & BSF_GLOBAL)
-	    s->n_type |= BFD_MACH_O_N_EXT;
 	}
+
+      /* Update external symbol bit in case objcopy changed it.  */
+      if (s->symbol.flags & BSF_GLOBAL)
+	s->n_type |= BFD_MACH_O_N_EXT;
+      else
+	s->n_type &= ~BFD_MACH_O_N_EXT;
 
       /* Put the section index in, where required.  */
       if ((s->symbol.section != bfd_abs_section_ptr
@@ -4595,16 +4598,12 @@ bfd_mach_o_read_version_min (bfd *abfd, bfd_mach_o_load_command *command)
 {
   bfd_mach_o_version_min_command *cmd = &command->command.version_min;
   struct mach_o_version_min_command_external raw;
-  unsigned int ver;
 
   if (bfd_bread (&raw, sizeof (raw), abfd) != sizeof (raw))
     return FALSE;
 
-  ver = bfd_get_32 (abfd, raw.version);
-  cmd->rel = ver >> 16;
-  cmd->maj = ver >> 8;
-  cmd->min = ver;
-  cmd->reserved = bfd_get_32 (abfd, raw.reserved);
+  cmd->version = bfd_get_32 (abfd, raw.version);
+  cmd->sdk = bfd_get_32 (abfd, raw.sdk);
   return TRUE;
 }
 
@@ -4675,6 +4674,37 @@ bfd_mach_o_read_source_version (bfd *abfd, bfd_mach_o_load_command *command)
   cmd->b = ver & 0x3ff;
   ver >>= 10;
   cmd->a = ver & 0xffffff;
+  return TRUE;
+}
+
+static bfd_boolean
+bfd_mach_o_read_note (bfd *abfd, bfd_mach_o_load_command *command)
+{
+  bfd_mach_o_note_command *cmd = &command->command.note;
+  struct mach_o_note_command_external raw;
+
+  if (bfd_bread (&raw, sizeof (raw), abfd) != sizeof (raw))
+    return FALSE;
+
+  memcpy (cmd->data_owner, raw.data_owner, 16);
+  cmd->offset = bfd_get_64 (abfd, raw.offset);
+  cmd->size = bfd_get_64 (abfd, raw.size);
+  return TRUE;
+}
+
+static bfd_boolean
+bfd_mach_o_read_build_version (bfd *abfd, bfd_mach_o_load_command *command)
+{
+  bfd_mach_o_build_version_command *cmd = &command->command.build_version;
+  struct mach_o_build_version_command_external raw;
+
+  if (bfd_bread (&raw, sizeof (raw), abfd) != sizeof (raw))
+    return FALSE;
+
+  cmd->platform = bfd_get_32 (abfd, raw.platform);
+  cmd->minos = bfd_get_32 (abfd, raw.minos);
+  cmd->sdk = bfd_get_32 (abfd, raw.sdk);
+  cmd->ntools = bfd_get_32 (abfd, raw.ntools);
   return TRUE;
 }
 
@@ -4874,6 +4904,7 @@ bfd_mach_o_read_command (bfd *abfd, bfd_mach_o_load_command *command)
     case BFD_MACH_O_LC_VERSION_MIN_MACOSX:
     case BFD_MACH_O_LC_VERSION_MIN_IPHONEOS:
     case BFD_MACH_O_LC_VERSION_MIN_WATCHOS:
+    case BFD_MACH_O_LC_VERSION_MIN_TVOS:
       if (!bfd_mach_o_read_version_min (abfd, command))
 	return FALSE;
       break;
@@ -4884,6 +4915,16 @@ bfd_mach_o_read_command (bfd *abfd, bfd_mach_o_load_command *command)
     case BFD_MACH_O_LC_SOURCE_VERSION:
       if (!bfd_mach_o_read_source_version (abfd, command))
 	return FALSE;
+      break;
+    case BFD_MACH_O_LC_LINKER_OPTIONS:
+      break;
+    case BFD_MACH_O_LC_NOTE:
+      if (!bfd_mach_o_read_note (abfd, command))
+        return FALSE;
+      break;
+    case BFD_MACH_O_LC_BUILD_VERSION:
+      if (!bfd_mach_o_read_build_version (abfd, command))
+        return FALSE;
       break;
     default:
       command->len = 0;

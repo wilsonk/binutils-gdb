@@ -1,5 +1,5 @@
 # Expect script for various ELF tests.
-#   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+#   Copyright (C) 2002-2019 Free Software Foundation, Inc.
 #
 # This file is part of the GNU Binutils.
 #
@@ -73,36 +73,12 @@ run_ld_link_tests [list \
 ]
 
 
-# True if the object format is known to be 64-bit ELF.
-#
-proc is_elf64 { binary_file } {
-    global READELF
-    global READELFFLAGS
-
-    set readelf_size ""
-    catch "exec $READELF $READELFFLAGS -h $binary_file > readelf.out" got
-
-    if ![string match "" $got] then {
-	return 0
-    }
-
-    if { ![regexp "\n\[ \]*Class:\[ \]*ELF(\[0-9\]+)\n" \
-	       [file_contents readelf.out] nil readelf_size] } {
-	verbose "FAILED to determine ELF size"
-	return 0
-    }
-
-    if { $readelf_size == "64" } {
-	return 1
-    }
-
-    return 0
-}
-
 if [is_elf64 tmpdir/symbol3w.a] {
     set ASFLAGS "$ASFLAGS --defsym ALIGN=3"
+    set pr23900_1_exp "pr23900-1-64.rd"
 } else {
     set ASFLAGS "$ASFLAGS --defsym ALIGN=2"
+    set pr23900_1_exp "pr23900-1-32.rd"
 }
 
 
@@ -121,12 +97,20 @@ if [is_underscore_target] {
     set ASFLAGS "$ASFLAGS --defsym UNDERSCORE=1"
 }
 
+global ASFLAGS
+set saved_ASFLAGS "$ASFLAGS"
+if { [istarget "i?86-*-*"] || [istarget "x86_64-*-*"] } {
+    set ASFLAGS "$ASFLAGS -mx86-used-note=no"
+}
+
 set test_list [lsort [glob -nocomplain $srcdir/$subdir/*.d]]
 foreach t $test_list {
     # We need to strip the ".d", but can leave the dirname.
     verbose [file rootname $t]
     run_dump_test [file rootname $t]
 }
+
+set ASFLAGS "$saved_ASFLAGS"
 
 # Targets using the generic linker backend don't support generating
 # an import library.
@@ -162,14 +146,36 @@ if { [check_gc_sections_available] && ![istarget "v850-*-*"] } {
 if { [istarget *-*-*linux*]
      || [istarget *-*-nacl*]
      || [istarget *-*-gnu*] } {
-    run_ld_link_tests {
-	{"stack exec" "-z execstack" "" "" {stack.s}
-	    {{readelf {-Wl} stack-exec.rd}} "stack-exec.exe"}
-	{"stack noexec" "-z noexecstack" "" "" {stack.s}
-	    {{readelf {-Wl} stack-noexec.rd}} "stack-noexec.exe"}
-	{"stack size" "-z stack-size=0x123400" "" "" {stack.s}
-	    {{readelf {-Wl} stack-size.rd}} "stack-size.exe"}
-    }
+    run_ld_link_tests [list \
+	[list "stack exec" \
+	    "-z execstack" \
+	    "" \
+	    "" \
+	    {stack.s} \
+	    {{readelf {-Wl} stack-exec.rd}} \
+	    "stack-exec.exe"] \
+	[list "stack noexec" \
+	    "-z noexecstack" \
+	    "" \
+	    "" \
+	    {stack.s} \
+	    {{readelf {-Wl} stack-noexec.rd}} \
+	    "stack-noexec.exe"] \
+	[list "stack size" \
+	    "-z stack-size=0x123400" \
+	    "" \
+	    "" \
+	    {stack.s} \
+	    {{readelf {-Wl} stack-size.rd}} \
+	    "stack-size.exe"] \
+	[list "PT_GNU_PROPERTY alignment" \
+	    "" \
+	    "" \
+	    "" \
+	    {pr23900-1.s} \
+	    [list [list "readelf" {-Wl} $pr23900_1_exp]] \
+	    "pr23900-1.exe"] \
+	]
 }
 
 set LDFLAGS $old_ldflags

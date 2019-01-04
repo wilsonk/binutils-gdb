@@ -1,6 +1,6 @@
 /* Python interface to values.
 
-   Copyright (C) 2008-2018 Free Software Foundation, Inc.
+   Copyright (C) 2008-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -90,17 +90,8 @@ valpy_dealloc (PyObject *obj)
 
   value_decref (self->value);
 
-  if (self->address)
-    /* Use braces to appease gcc warning.  *sigh*  */
-    {
-      Py_DECREF (self->address);
-    }
-
-  if (self->type)
-    {
-      Py_DECREF (self->type);
-    }
-
+  Py_XDECREF (self->address);
+  Py_XDECREF (self->type);
   Py_XDECREF (self->dynamic_type);
 
   Py_TYPE (self)->tp_free (self);
@@ -917,10 +908,10 @@ valpy_call (PyObject *self, PyObject *args, PyObject *keywords)
   TRY
     {
       scoped_value_mark free_values;
-      struct value *return_value;
 
-      return_value = call_function_by_hand (function, NULL,
-					    args_count, vargs);
+      value *return_value
+	= call_function_by_hand (function, NULL,
+				 gdb::make_array_view (vargs, args_count));
       result = value_to_value_object (return_value);
     }
   CATCH (except, RETURN_MASK_ALL)
@@ -1497,7 +1488,14 @@ valpy_int (PyObject *self)
 
   TRY
     {
-      if (!is_integral_type (type))
+      if (is_floating_value (value))
+	{
+	  type = builtin_type_pylong;
+	  value = value_cast (type, value);
+	}
+
+      if (!is_integral_type (type)
+	  && TYPE_CODE (type) != TYPE_CODE_PTR)
 	error (_("Cannot convert value to int."));
 
       l = value_as_long (value);
@@ -1508,7 +1506,10 @@ valpy_int (PyObject *self)
     }
   END_CATCH
 
-  return gdb_py_object_from_longest (l);
+  if (TYPE_UNSIGNED (type))
+    return gdb_py_object_from_ulongest (l).release ();
+  else
+    return gdb_py_object_from_longest (l).release ();
 }
 #endif
 
@@ -1522,6 +1523,12 @@ valpy_long (PyObject *self)
 
   TRY
     {
+      if (is_floating_value (value))
+	{
+	  type = builtin_type_pylong;
+	  value = value_cast (type, value);
+	}
+
       type = check_typedef (type);
 
       if (!is_integral_type (type)
@@ -1554,10 +1561,17 @@ valpy_float (PyObject *self)
     {
       type = check_typedef (type);
 
-      if (TYPE_CODE (type) != TYPE_CODE_FLT || !is_floating_value (value))
+      if (TYPE_CODE (type) == TYPE_CODE_FLT && is_floating_value (value))
+	d = target_float_to_host_double (value_contents (value), type);
+      else if (TYPE_CODE (type) == TYPE_CODE_INT)
+	{
+	  /* Note that valpy_long accepts TYPE_CODE_PTR and some
+	     others here here -- but casting a pointer or bool to a
+	     float seems wrong.  */
+	  d = value_as_long (value);
+	}
+      else
 	error (_("Cannot convert value to float."));
-
-      d = target_float_to_host_double (value_contents (value), type);
     }
   CATCH (except, RETURN_MASK_ALL)
     {
@@ -1638,9 +1652,7 @@ convert_value_from_python (PyObject *obj)
 	         ULONGEST instead.  */
 	      if (PyErr_ExceptionMatches (PyExc_OverflowError))
 		{
-		  PyObject *etype, *evalue, *etraceback;
-
-		  PyErr_Fetch (&etype, &evalue, &etraceback);
+		  gdbpy_err_fetch fetched_error;
 		  gdbpy_ref<> zero (PyInt_FromLong (0));
 
 		  /* Check whether obj is positive.  */
@@ -1653,8 +1665,10 @@ convert_value_from_python (PyObject *obj)
 			value = value_from_ulongest (builtin_type_upylong, ul);
 		    }
 		  else
-		    /* There's nothing we can do.  */
-		    PyErr_Restore (etype, evalue, etraceback);
+		    {
+		      /* There's nothing we can do.  */
+		      fetched_error.restore ();
+		    }
 		}
 	    }
 	  else
@@ -1709,9 +1723,7 @@ convert_value_from_python (PyObject *obj)
     }
   CATCH (except, RETURN_MASK_ALL)
     {
-      PyErr_Format (except.reason == RETURN_QUIT
-		    ? PyExc_KeyboardInterrupt : PyExc_RuntimeError,
-		    "%s", except.message);
+      gdbpy_convert_exception (except);
       return NULL;
     }
   END_CATCH

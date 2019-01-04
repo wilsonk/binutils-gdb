@@ -1,5 +1,5 @@
 /* .eh_frame section optimization.
-   Copyright (C) 2001-2018 Free Software Foundation, Inc.
+   Copyright (C) 2001-2019 Free Software Foundation, Inc.
    Written by Jakub Jelinek <jakub@redhat.com>.
 
    This file is part of BFD, the Binary File Descriptor library.
@@ -797,6 +797,8 @@ _bfd_elf_parse_eh_frame (bfd *abfd, struct bfd_link_info *info,
 	      while (*aug != '\0')
 		switch (*aug++)
 		  {
+		  case 'B':
+		    break;
 		  case 'L':
 		    REQUIRE (read_byte (&buf, end, &cie->lsda_encoding));
 		    ENSURE_NO_RELOCS (buf);

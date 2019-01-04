@@ -1,5 +1,5 @@
 /* aarch64-dis.c -- AArch64 disassembler.
-   Copyright (C) 2009-2018 Free Software Foundation, Inc.
+   Copyright (C) 2009-2019 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of the GNU opcodes library.
@@ -26,11 +26,6 @@
 #include "aarch64-dis.h"
 #include "elf-bfd.h"
 
-#define ERR_OK   0
-#define ERR_UND -1
-#define ERR_UNP -3
-#define ERR_NYI -5
-
 #define INSNLEN 4
 
 /* Cached mapping symbol state.  */
@@ -48,6 +43,9 @@ static bfd_vma last_mapping_addr = 0;
 static int no_aliases = 0;	/* If set disassemble as most general inst.  */
 static int no_notes = 1;	/* If set do not print disassemble notes in the
 				  output as comments.  */
+
+/* Currently active instruction sequence.  */
+static aarch64_instr_sequence insn_sequence;
 
 static void
 set_default_aarch64_dis_options (struct disassemble_info *info ATTRIBUTE_UNUSED)
@@ -667,6 +665,8 @@ aarch64_ext_imm (const aarch64_operand *self, aarch64_opnd_info *info,
 
   if (operand_need_shift_by_two (self))
     imm <<= 2;
+  else if (operand_need_shift_by_four (self))
+    imm <<= 4;
 
   if (info->type == AARCH64_OPND_ADDR_ADRP)
     imm <<= 12;
@@ -985,6 +985,23 @@ aarch64_ext_addr_simple (const aarch64_operand *self ATTRIBUTE_UNUSED,
   return TRUE;
 }
 
+
+
+/* Decode the address operand for e.g. STGV <Xt>, [<Xn|SP>]!.  */
+bfd_boolean
+aarch64_ext_addr_simple_2 (const aarch64_operand *self ATTRIBUTE_UNUSED,
+			   aarch64_opnd_info *info,
+			   aarch64_insn code,
+			   const aarch64_inst *inst ATTRIBUTE_UNUSED,
+			   aarch64_operand_error *errors ATTRIBUTE_UNUSED)
+{
+  /* Rn */
+  info->addr.base_regno = extract_field (FLD_Rn, code, 0);
+  info->addr.writeback = 1;
+  info->addr.preind = 1;
+  return TRUE;
+}
+
 /* Decode the address operand for e.g.
      stlur <Xt>, [<Xn|SP>{, <amount>}].  */
 bfd_boolean
@@ -1067,7 +1084,8 @@ aarch64_ext_addr_simm (const aarch64_operand *self, aarch64_opnd_info *info,
   /* simm (imm9 or imm7)  */
   imm = extract_field (self->fields[0], code, 0);
   info->addr.offset.imm = sign_extend (imm, fields[self->fields[0]].width - 1);
-  if (self->fields[0] == FLD_imm7)
+  if (self->fields[0] == FLD_imm7
+      || info->qualifier == AARCH64_OPND_QLF_imm_tag)
     /* scaled immediate in ld/st pair instructions.  */
     info->addr.offset.imm *= aarch64_get_qualifier_esize (info->qualifier);
   /* qualifier */
@@ -1245,6 +1263,12 @@ aarch64_ext_sysins_op (const aarch64_operand *self ATTRIBUTE_UNUSED,
     case AARCH64_OPND_SYSREG_DC: sysins_ops = aarch64_sys_regs_dc; break;
     case AARCH64_OPND_SYSREG_IC: sysins_ops = aarch64_sys_regs_ic; break;
     case AARCH64_OPND_SYSREG_TLBI: sysins_ops = aarch64_sys_regs_tlbi; break;
+    case AARCH64_OPND_SYSREG_SR:
+	sysins_ops = aarch64_sys_regs_sr;
+	 /* Let's remove op2 for rctx.  Refer to comments in the definition of
+	    aarch64_sys_regs_sr[].  */
+	value = value & ~(0x7);
+	break;
     default: assert (0); return FALSE;
     }
 
@@ -1308,7 +1332,7 @@ aarch64_ext_hint (const aarch64_operand *self ATTRIBUTE_UNUSED,
 
   for (i = 0; aarch64_hint_options[i].name != NULL; i++)
     {
-      if (hint_number == aarch64_hint_options[i].value)
+      if (hint_number == HINT_VAL (aarch64_hint_options[i].value))
 	{
 	  info->hint_option = &(aarch64_hint_options[i]);
 	  return TRUE;
@@ -2887,7 +2911,8 @@ aarch64_opcode_decode (const aarch64_opcode *opcode, const aarch64_insn code,
     }
 
   /* If the opcode has a verifier, then check it now.  */
-  if (opcode->verifier && ! opcode->verifier (opcode, code))
+  if (opcode->verifier
+      && opcode->verifier (inst, code, 0, FALSE, errors, NULL) != ERR_OK)
     {
       DEBUG_TRACE ("operand verifier FAIL");
       goto decode_fail;
@@ -2942,7 +2967,7 @@ user_friendly_fixup (aarch64_inst *inst)
    opcode may be filled in *INSN if NOALIASES_P is FALSE.  Return zero on
    success.  */
 
-int
+enum err_type
 aarch64_decode_insn (aarch64_insn insn, aarch64_inst *inst,
 		     bfd_boolean noaliases_p,
 		     aarch64_operand_error *errors)
@@ -2984,10 +3009,11 @@ aarch64_decode_insn (aarch64_insn insn, aarch64_inst *inst,
 
 static void
 print_operands (bfd_vma pc, const aarch64_opcode *opcode,
-		const aarch64_opnd_info *opnds, struct disassemble_info *info)
+		const aarch64_opnd_info *opnds, struct disassemble_info *info,
+		bfd_boolean *has_notes)
 {
-  int i, pcrel_p, num_printed;
   char *notes = NULL;
+  int i, pcrel_p, num_printed;
   for (i = 0, num_printed = 0; i < AARCH64_MAX_OPND_NUM; ++i)
     {
       char str[128];
@@ -3017,7 +3043,10 @@ print_operands (bfd_vma pc, const aarch64_opcode *opcode,
     }
 
     if (notes && !no_notes)
-      (*info->fprintf_func) (info->stream, "\t; note: %s", notes);
+      {
+	*has_notes = TRUE;
+	(*info->fprintf_func) (info->stream, "  // note: %s", notes);
+      }
 }
 
 /* Set NAME to a copy of INST's mnemonic with the "." suffix removed.  */
@@ -3075,15 +3104,63 @@ print_comment (const aarch64_inst *inst, struct disassemble_info *info)
     }
 }
 
+/* Build notes from verifiers into a string for printing.  */
+
+static void
+print_verifier_notes (aarch64_operand_error *detail,
+		      struct disassemble_info *info)
+{
+  if (no_notes)
+    return;
+
+  /* The output of the verifier cannot be a fatal error, otherwise the assembly
+     would not have succeeded.  We can safely ignore these.  */
+  assert (detail->non_fatal);
+  assert (detail->error);
+
+  /* If there are multiple verifier messages, concat them up to 1k.  */
+  (*info->fprintf_func) (info->stream, "  // note: %s", detail->error);
+  if (detail->index >= 0)
+     (*info->fprintf_func) (info->stream, " at operand %d", detail->index + 1);
+}
+
 /* Print the instruction according to *INST.  */
 
 static void
 print_aarch64_insn (bfd_vma pc, const aarch64_inst *inst,
-		    struct disassemble_info *info)
+		    const aarch64_insn code,
+		    struct disassemble_info *info,
+		    aarch64_operand_error *mismatch_details)
 {
+  bfd_boolean has_notes = FALSE;
+
   print_mnemonic_name (inst, info);
-  print_operands (pc, inst->opcode, inst->operands, info);
+  print_operands (pc, inst->opcode, inst->operands, info, &has_notes);
   print_comment (inst, info);
+
+  /* We've already printed a note, not enough space to print more so exit.
+     Usually notes shouldn't overlap so it shouldn't happen that we have a note
+     from a register and instruction at the same time.  */
+  if (has_notes)
+    return;
+
+  /* Always run constraint verifiers, this is needed because constraints need to
+     maintain a global state regardless of whether the instruction has the flag
+     set or not.  */
+  enum err_type result = verify_constraints (inst, code, pc, FALSE,
+					     mismatch_details, &insn_sequence);
+  switch (result)
+    {
+    case ERR_UND:
+    case ERR_UNP:
+    case ERR_NYI:
+      assert (0);
+    case ERR_VFI:
+      print_verifier_notes (mismatch_details, info);
+      break;
+    default:
+      break;
+    }
 }
 
 /* Entry-point of the instruction disassembler and printer.  */
@@ -3094,15 +3171,15 @@ print_insn_aarch64_word (bfd_vma pc,
 			 struct disassemble_info *info,
 			 aarch64_operand_error *errors)
 {
-  static const char *err_msg[6] =
+  static const char *err_msg[ERR_NR_ENTRIES+1] =
     {
-      [ERR_OK]   = "_",
-      [-ERR_UND] = "undefined",
-      [-ERR_UNP] = "unpredictable",
-      [-ERR_NYI] = "NYI"
+      [ERR_OK]  = "_",
+      [ERR_UND] = "undefined",
+      [ERR_UNP] = "unpredictable",
+      [ERR_NYI] = "NYI"
     };
 
-  int ret;
+  enum err_type ret;
   aarch64_inst inst;
 
   info->insn_info_valid = 1;
@@ -3136,11 +3213,11 @@ print_insn_aarch64_word (bfd_vma pc,
       /* Handle undefined instructions.  */
       info->insn_type = dis_noninsn;
       (*info->fprintf_func) (info->stream,".inst\t0x%08x ; %s",
-			     word, err_msg[-ret]);
+			     word, err_msg[ret]);
       break;
     case ERR_OK:
       user_friendly_fixup (&inst);
-      print_aarch64_insn (pc, &inst, info);
+      print_aarch64_insn (pc, &inst, word, info, errors);
       break;
     default:
       abort ();

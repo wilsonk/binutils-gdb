@@ -1,6 +1,6 @@
 /* Common target dependent code for GDB on ARM systems.
 
-   Copyright (C) 1988-2018 Free Software Foundation, Inc.
+   Copyright (C) 1988-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -1800,6 +1800,10 @@ arm_scan_prologue (struct frame_info *this_frame,
 	 The value stored there should be the address of the stmfd + 8.  */
       CORE_ADDR frame_loc;
       ULONGEST return_value;
+
+      /* AAPCS does not use a frame register, so we can abort here.  */
+      if (gdbarch_tdep (gdbarch)->arm_abi == ARM_ABI_AAPCS)
+        return;
 
       frame_loc = get_frame_register_unsigned (this_frame, ARM_FP_REGNUM);
       if (!safe_read_memory_unsigned_integer (frame_loc, 4, byte_order,
@@ -3679,7 +3683,8 @@ arm_vfp_abi_for_function (struct gdbarch *gdbarch, struct type *func_type)
 static CORE_ADDR
 arm_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 		     struct regcache *regcache, CORE_ADDR bp_addr, int nargs,
-		     struct value **args, CORE_ADDR sp, int struct_return,
+		     struct value **args, CORE_ADDR sp,
+		     function_call_return_method return_method,
 		     CORE_ADDR struct_addr)
 {
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
@@ -3714,7 +3719,7 @@ arm_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 
   /* The struct_return pointer occupies the first parameter
      passing register.  */
-  if (struct_return)
+  if (return_method == return_method_struct)
     {
       if (arm_debug)
 	fprintf_unfiltered (gdb_stdlog, "struct return in %s = %s\n",
@@ -7460,9 +7465,9 @@ thumb_process_displaced_32bit_insn (struct gdbarch *gdbarch, uint16_t insn1,
 	{
 	  if (bit (insn1, 9)) /* Data processing (plain binary imm).  */
 	    {
-	      int op = bits (insn1, 4, 8);
+	      int dp_op = bits (insn1, 4, 8);
 	      int rn = bits (insn1, 0, 3);
-	      if ((op == 0 || op == 0xa) && rn == 0xf)
+	      if ((dp_op == 0 || dp_op == 0xa) && rn == 0xf)
 		err = thumb_copy_pc_relative_32bit (gdbarch, insn1, insn2,
 						    regs, dsc);
 	      else
@@ -9046,8 +9051,6 @@ arm_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 
 	  if (fp_model == ARM_FLOAT_AUTO)
 	    {
-	      int e_flags = elf_elfheader (info.abfd)->e_flags;
-
 	      switch (e_flags & (EF_ARM_SOFT_FLOAT | EF_ARM_VFP_FLOAT))
 		{
 		case 0:

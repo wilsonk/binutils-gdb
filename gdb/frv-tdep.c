@@ -1,6 +1,6 @@
 /* Target-dependent code for the Fujitsu FR-V, for GDB, the GNU Debugger.
 
-   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+   Copyright (C) 2002-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -29,7 +29,7 @@
 #include "dis-asm.h"
 #include "sim-regno.h"
 #include "gdb/sim-frv.h"
-#include "opcodes/frv-desc.h"	/* for the H_SPR_... enums */
+#include "../opcodes/frv-desc.h"	/* for the H_SPR_... enums */
 #include "symtab.h"
 #include "elf-bfd.h"
 #include "elf/frv.h"
@@ -1193,7 +1193,8 @@ static CORE_ADDR
 frv_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
                      struct regcache *regcache, CORE_ADDR bp_addr,
                      int nargs, struct value **args, CORE_ADDR sp,
-		     int struct_return, CORE_ADDR struct_addr)
+		     function_call_return_method return_method,
+		     CORE_ADDR struct_addr)
 {
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
   int argreg;
@@ -1230,7 +1231,7 @@ frv_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 
   argreg = 8;
 
-  if (struct_return)
+  if (return_method == return_method_struct)
     regcache_cooked_write_unsigned (regcache, struct_return_regnum,
                                     struct_addr);
 

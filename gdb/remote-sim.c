@@ -1,6 +1,6 @@
 /* Generic remote debugging interface for simulators.
 
-   Copyright (C) 1993-2018 Free Software Foundation, Inc.
+   Copyright (C) 1993-2019 Free Software Foundation, Inc.
 
    Contributed by Cygnus Support.
    Steve Chamberlain (sac@cygnus.com).
@@ -31,6 +31,7 @@
 #include <setjmp.h>
 #include "terminal.h"
 #include "target.h"
+#include "process-stratum-target.h"
 #include "gdbcore.h"
 #include "gdb/callback.h"
 #include "gdb/remote-sim.h"
@@ -82,10 +83,9 @@ static const target_info gdbsim_target_info = {
 };
 
 struct gdbsim_target final
-  : public memory_breakpoint_target<target_ops>
+  : public memory_breakpoint_target<process_stratum_target>
 {
-  gdbsim_target ()
-  { to_stratum = process_stratum; }
+  gdbsim_target () = default;
 
   const target_info &info () const override
   { return gdbsim_target_info; }
@@ -128,15 +128,6 @@ struct gdbsim_target final
 
   bool has_all_memory ()  override;
   bool has_memory ()  override;
-
-  bool has_stack ()  override
-  { return default_child_has_stack (); }
-
-  bool has_registers ()  override
-  { return default_child_has_registers (); }
-
-  bool has_execution (ptid_t ptid) override
-  { return default_child_has_execution (ptid); }
 };
 
 static struct gdbsim_target gdbsim_ops;
@@ -673,9 +664,6 @@ gdbsim_target::create_inferior (const char *exec_file,
       strcat (arg_buf, args);
       built_argv.reset (arg_buf);
     }
-
-  if (!have_inferiors ())
-    init_thread_list ();
 
   if (sim_create_inferior (sim_data->gdbsim_desc, exec_bfd,
 			   built_argv.get (), env)

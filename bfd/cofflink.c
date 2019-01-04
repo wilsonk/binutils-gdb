@@ -1,5 +1,5 @@
 /* COFF specific linker code.
-   Copyright (C) 1994-2018 Free Software Foundation, Inc.
+   Copyright (C) 1994-2019 Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Cygnus Support.
 
    This file is part of BFD, the Binary File Descriptor library.
@@ -3080,7 +3080,7 @@ _bfd_coff_generic_relocate_section (bfd *output_bfd,
       if (sec != NULL && discarded_section (sec))
 	{
 	  _bfd_clear_contents (howto, input_bfd, input_section,
-			       contents + (rel->r_vaddr - input_section->vma));
+			       contents, rel->r_vaddr - input_section->vma);
 	  continue;
 	}
 

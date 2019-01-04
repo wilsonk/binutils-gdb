@@ -1,6 +1,6 @@
 /* General Compile and inject code
 
-   Copyright (C) 2014-2018 Free Software Foundation, Inc.
+   Copyright (C) 2014-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -141,7 +141,7 @@ compile_instance::compile_instance (struct gcc_base_context *gcc_fe,
 /* See compile-internal.h.  */
 
 bool
-compile_instance::get_cached_type (struct type *type, gcc_type &ret) const
+compile_instance::get_cached_type (struct type *type, gcc_type *ret) const
 {
   struct type_map_instance inst, *found;
 
@@ -149,7 +149,7 @@ compile_instance::get_cached_type (struct type *type, gcc_type &ret) const
   found = (struct type_map_instance *) htab_find (m_type_map.get (), &inst);
   if (found != NULL)
     {
-      ret = found->gcc_type_handle;
+      *ret = found->gcc_type_handle;
       return true;
     }
 
@@ -195,11 +195,11 @@ compile_instance::insert_symbol_error (const struct symbol *sym,
   slot = htab_find_slot (m_symbol_err_map.get (), &e, INSERT);
   if (*slot == NULL)
     {
-      struct symbol_error *e = XNEW (struct symbol_error);
+      struct symbol_error *ep = XNEW (struct symbol_error);
 
-      e->sym = sym;
-      e->message = xstrdup (text);
-      *slot = e;
+      ep->sym = sym;
+      ep->message = xstrdup (text);
+      *slot = ep;
     }
 }
 
@@ -395,11 +395,7 @@ get_compile_file_tempdir (void)
 
   strcpy (tname, TEMPLATE);
 #undef TEMPLATE
-#ifdef HAVE_MKDTEMP
   tempdir_name = mkdtemp (tname);
-#else
-  error (_("Command not supported on this host."));
-#endif
   if (tempdir_name == NULL)
     perror_with_name (_("Could not make temporary directory"));
 
@@ -439,10 +435,10 @@ get_expr_block_and_pc (CORE_ADDR *pc)
 	block = BLOCKVECTOR_BLOCK (SYMTAB_BLOCKVECTOR (cursal.symtab),
 				   STATIC_BLOCK);
       if (block != NULL)
-	*pc = BLOCK_START (block);
+	*pc = BLOCK_ENTRY_PC (block);
     }
   else
-    *pc = BLOCK_START (block);
+    *pc = BLOCK_ENTRY_PC (block);
 
   return block;
 }
@@ -908,14 +904,16 @@ compile_instance::compile (const char *filename, int verbose_level)
 
 #undef FORWARD
 
+/* See compile.h.  */
+cmd_list_element *compile_cmd_element = nullptr;
 
 void
 _initialize_compile (void)
 {
   struct cmd_list_element *c = NULL;
 
-  add_prefix_cmd ("compile", class_obscure, compile_command,
-		  _("\
+  compile_cmd_element = add_prefix_cmd ("compile", class_obscure,
+					compile_command, _("\
 Command to compile source code and inject it into the inferior."),
 		  &compile_command_list, "compile ", 1, &cmdlist);
   add_com_alias ("expression", "compile", class_obscure, 0);
@@ -995,7 +993,6 @@ String quoting is parsed like in shell, for example:\n\
 			 " -fPIE"
   /* We want warnings, except for some commonly happening for GDB commands.  */
 			 " -Wall "
-			 " -Wno-implicit-function-declaration"
 			 " -Wno-unused-but-set-variable"
 			 " -Wno-unused-variable"
   /* Override CU's possible -fstack-protector-strong.  */

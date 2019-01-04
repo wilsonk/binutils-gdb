@@ -1,6 +1,6 @@
 /* Read ELF (Executable and Linking Format) object files for GDB.
 
-   Copyright (C) 1991-2018 Free Software Foundation, Inc.
+   Copyright (C) 1991-2019 Free Software Foundation, Inc.
 
    Written by Fred Fish at Cygnus Support.
 
@@ -904,7 +904,7 @@ elf_gnu_ifunc_resolve_addr (struct gdbarch *gdbarch, CORE_ADDR pc)
   target_auxv_search (current_top_target (), AT_HWCAP, &hwcap);
   hwcap_val = value_from_longest (builtin_type (gdbarch)
 				  ->builtin_unsigned_long, hwcap);
-  address_val = call_function_by_hand (function, NULL, 1, &hwcap_val);
+  address_val = call_function_by_hand (function, NULL, hwcap_val);
   address = value_as_address (address_val);
   address = gdbarch_convert_from_func_ptr_addr (gdbarch, address, current_top_target ());
   address = gdbarch_addr_bits_remove (gdbarch, address);
@@ -1296,9 +1296,9 @@ elf_symfile_read (struct objfile *objfile, symfile_add_flags symfile_flags)
 
       if (!debugfile.empty ())
 	{
-	  gdb_bfd_ref_ptr abfd (symfile_bfd_open (debugfile.c_str ()));
+	  gdb_bfd_ref_ptr debug_bfd (symfile_bfd_open (debugfile.c_str ()));
 
-	  symbol_file_add_separate (abfd.get (), debugfile.c_str (),
+	  symbol_file_add_separate (debug_bfd.get (), debugfile.c_str (),
 				    symfile_flags, objfile);
 	}
     }

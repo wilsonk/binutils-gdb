@@ -1,6 +1,6 @@
 /* Target-dependent code for GNU/Linux, architecture independent.
 
-   Copyright (C) 2009-2018 Free Software Foundation, Inc.
+   Copyright (C) 2009-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -822,13 +822,13 @@ linux_info_proc (struct gdbarch *gdbarch, const char *args,
 	       line = strtok (NULL, "\n"))
 	    {
 	      ULONGEST addr, endaddr, offset, inode;
-	      const char *permissions, *device, *filename;
+	      const char *permissions, *device, *mapping_filename;
 	      size_t permissions_len, device_len;
 
 	      read_mapping (line, &addr, &endaddr,
 			    &permissions, &permissions_len,
 			    &offset, &device, &device_len,
-			    &inode, &filename);
+			    &inode, &mapping_filename);
 
 	      if (gdbarch_addr_bit (gdbarch) == 32)
 	        {
@@ -837,7 +837,7 @@ linux_info_proc (struct gdbarch *gdbarch, const char *args,
 				   paddress (gdbarch, endaddr),
 				   hex_string (endaddr - addr),
 				   hex_string (offset),
-				   *filename? filename : "");
+				   *mapping_filename ? mapping_filename : "");
 		}
 	      else
 	        {
@@ -846,7 +846,7 @@ linux_info_proc (struct gdbarch *gdbarch, const char *args,
 				   paddress (gdbarch, endaddr),
 				   hex_string (endaddr - addr),
 				   hex_string (offset),
-				   *filename? filename : "");
+				   *mapping_filename ? mapping_filename : "");
 	        }
 	    }
 	}
@@ -1547,8 +1547,9 @@ linux_make_mappings_corefile_notes (struct gdbarch *gdbarch, bfd *obfd,
 		 long_type, mapping_data.file_count);
 
       /* Copy the filenames to the data obstack.  */
+      int size = obstack_object_size (&filename_obstack);
       obstack_grow (&data_obstack, obstack_base (&filename_obstack),
-		    obstack_object_size (&filename_obstack));
+		    size);
 
       note_data = elfcore_write_note (obfd, note_data, note_size,
 				      "CORE", NT_FILE,
@@ -1583,7 +1584,6 @@ linux_collect_regset_section_cb (const char *sect_name, int supply_size,
 				 int collect_size, const struct regset *regset,
 				 const char *human_name, void *cb_data)
 {
-  char *buf;
   struct linux_collect_regset_section_cb_data *data
     = (struct linux_collect_regset_section_cb_data *) cb_data;
   bool variable_size_section = (regset != NULL
@@ -1597,19 +1597,22 @@ linux_collect_regset_section_cb (const char *sect_name, int supply_size,
 
   gdb_assert (regset && regset->collect_regset);
 
-  buf = (char *) xmalloc (collect_size);
-  regset->collect_regset (regset, data->regcache, -1, buf, collect_size);
+  /* This is intentionally zero-initialized by using std::vector, so
+     that any padding bytes in the core file will show as 0.  */
+  std::vector<gdb_byte> buf (collect_size);
+
+  regset->collect_regset (regset, data->regcache, -1, buf.data (),
+			  collect_size);
 
   /* PRSTATUS still needs to be treated specially.  */
   if (strcmp (sect_name, ".reg") == 0)
     data->note_data = (char *) elfcore_write_prstatus
       (data->obfd, data->note_data, data->note_size, data->lwp,
-       gdb_signal_to_host (data->stop_signal), buf);
+       gdb_signal_to_host (data->stop_signal), buf.data ());
   else
     data->note_data = (char *) elfcore_write_register_note
       (data->obfd, data->note_data, data->note_size,
-       sect_name, buf, collect_size);
-  xfree (buf);
+       sect_name, buf.data (), collect_size);
 
   if (data->note_data == NULL)
     data->abort_iteration = 1;
@@ -1728,7 +1731,7 @@ linux_fill_prpsinfo (struct elf_internal_linux_prpsinfo *p)
   char filename[100];
   /* The basename of the executable.  */
   const char *basename;
-  char *infargs;
+  const char *infargs;
   /* Temporary buffer.  */
   char *tmpstr;
   /* The valid states of a process, according to the Linux kernel.  */
@@ -1910,7 +1913,7 @@ linux_make_corefile_notes (struct gdbarch *gdbarch, bfd *obfd, int *note_size)
   struct linux_corefile_thread_data thread_args;
   struct elf_internal_linux_prpsinfo prpsinfo;
   char *note_data = NULL;
-  struct thread_info *curr_thr, *signalled_thr, *thr;
+  struct thread_info *curr_thr, *signalled_thr;
 
   if (! gdbarch_iterate_over_regset_sections_p (gdbarch))
     return NULL;
@@ -1959,11 +1962,9 @@ linux_make_corefile_notes (struct gdbarch *gdbarch, bfd *obfd, int *note_size)
   thread_args.stop_signal = signalled_thr->suspend.stop_signal;
 
   linux_corefile_thread (signalled_thr, &thread_args);
-  ALL_NON_EXITED_THREADS (thr)
+  for (thread_info *thr : current_inferior ()->non_exited_threads ())
     {
       if (thr == signalled_thr)
-	continue;
-      if (thr->ptid.pid () != inferior_ptid.pid ())
 	continue;
 
       linux_corefile_thread (thr, &thread_args);
@@ -2266,7 +2267,6 @@ linux_vsyscall_range_raw (struct gdbarch *gdbarch, struct mem_range *range)
      the vDSO.  */
   if (!target_has_execution)
     {
-      Elf_Internal_Phdr *phdrs;
       long phdrs_size;
       int num_phdrs, i;
 
@@ -2274,16 +2274,17 @@ linux_vsyscall_range_raw (struct gdbarch *gdbarch, struct mem_range *range)
       if (phdrs_size == -1)
 	return 0;
 
-      phdrs = (Elf_Internal_Phdr *) alloca (phdrs_size);
-      num_phdrs = bfd_get_elf_phdrs (core_bfd, phdrs);
+      gdb::unique_xmalloc_ptr<Elf_Internal_Phdr>
+	phdrs ((Elf_Internal_Phdr *) xmalloc (phdrs_size));
+      num_phdrs = bfd_get_elf_phdrs (core_bfd, phdrs.get ());
       if (num_phdrs == -1)
 	return 0;
 
       for (i = 0; i < num_phdrs; i++)
-	if (phdrs[i].p_type == PT_LOAD
-	    && phdrs[i].p_vaddr == range->start)
+	if (phdrs.get ()[i].p_type == PT_LOAD
+	    && phdrs.get ()[i].p_vaddr == range->start)
 	  {
-	    range->length = phdrs[i].p_memsz;
+	    range->length = phdrs.get ()[i].p_memsz;
 	    return 1;
 	  }
 
@@ -2397,7 +2398,7 @@ linux_infcall_mmap (CORE_ADDR size, unsigned prot)
   arg[ARG_FD] = value_from_longest (builtin_type (gdbarch)->builtin_int, -1);
   arg[ARG_OFFSET] = value_from_longest (builtin_type (gdbarch)->builtin_int64,
 					0);
-  addr_val = call_function_by_hand (mmap_val, NULL, ARG_LAST, arg);
+  addr_val = call_function_by_hand (mmap_val, NULL, arg);
   retval = value_as_address (addr_val);
   if (retval == (CORE_ADDR) -1)
     error (_("Failed inferior mmap call for %s bytes, errno is changed."),
@@ -2426,7 +2427,7 @@ linux_infcall_munmap (CORE_ADDR addr, CORE_ADDR size)
   /* Assuming sizeof (unsigned long) == sizeof (size_t).  */
   arg[ARG_LENGTH] = value_from_ulongest
 		    (builtin_type (gdbarch)->builtin_unsigned_long, size);
-  retval_val = call_function_by_hand (munmap_val, NULL, ARG_LAST, arg);
+  retval_val = call_function_by_hand (munmap_val, NULL, arg);
   retval = value_as_long (retval_val);
   if (retval != 0)
     warning (_("Failed inferior munmap call at %s for %s bytes, "

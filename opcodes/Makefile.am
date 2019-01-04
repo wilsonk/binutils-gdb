@@ -1,6 +1,6 @@
 ## Process this file with automake to generate Makefile.in
 #
-#   Copyright (C) 2012-2018 Free Software Foundation, Inc.
+#   Copyright (C) 2012-2019 Free Software Foundation, Inc.
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -28,7 +28,6 @@ BFDDIR = $(srcdir)/../bfd
 
 WARN_CFLAGS = @WARN_CFLAGS@
 NO_WERROR = @NO_WERROR@
-NO_WMISSING_FIELD_INITIALIZERS = @NO_WMISSING_FIELD_INITIALIZERS@
 AM_CFLAGS = $(WARN_CFLAGS)
 
 COMPILE_FOR_BUILD = $(CC_FOR_BUILD) $(INCLUDES) $(AM_CPPFLAGS) \
@@ -177,6 +176,7 @@ TARGET_LIBOPCODES_CFILES = \
 	m68k-dis.c \
 	m68k-opc.c \
 	s12z-dis.c \
+	s12z-opc.c \
 	mcore-dis.c \
 	mep-asm.c \
 	mep-desc.c \

@@ -1,6 +1,6 @@
 /* Intel 386 target-dependent stuff.
 
-   Copyright (C) 1988-2018 Free Software Foundation, Inc.
+   Copyright (C) 1988-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -518,7 +518,7 @@ i386_dbx_reg_to_regnum (struct gdbarch *gdbarch, int reg)
     }
 
   /* This will hopefully provoke a warning.  */
-  return gdbarch_num_regs (gdbarch) + gdbarch_num_pseudo_regs (gdbarch);
+  return gdbarch_num_cooked_regs (gdbarch);
 }
 
 /* Convert SVR4 DWARF register number REG to the appropriate register number
@@ -575,7 +575,7 @@ i386_svr4_reg_to_regnum (struct gdbarch *gdbarch, int reg)
   int regnum = i386_svr4_dwarf_reg_to_regnum (gdbarch, reg);
 
   if (regnum == -1)
-    return gdbarch_num_regs (gdbarch) + gdbarch_num_pseudo_regs (gdbarch);
+    return gdbarch_num_cooked_regs (gdbarch);
   return regnum;
 }
 
@@ -2671,7 +2671,8 @@ i386_push_dummy_code (struct gdbarch *gdbarch, CORE_ADDR sp, CORE_ADDR funaddr,
 static CORE_ADDR
 i386_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 		      struct regcache *regcache, CORE_ADDR bp_addr, int nargs,
-		      struct value **args, CORE_ADDR sp, int struct_return,
+		      struct value **args, CORE_ADDR sp,
+		      function_call_return_method return_method,
 		      CORE_ADDR struct_addr)
 {
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
@@ -2695,7 +2696,7 @@ i386_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
     {
       int args_space_used = 0;
 
-      if (struct_return)
+      if (return_method == return_method_struct)
 	{
 	  if (write_pass)
 	    {

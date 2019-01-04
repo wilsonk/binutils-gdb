@@ -1,5 +1,5 @@
 /* C preprocessor macro expansion commands for GDB.
-   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+   Copyright (C) 2002-2019 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
    This file is part of GDB.
@@ -199,13 +199,9 @@ info_macro_command (const char *args, int from_tty)
 	     e.g. Scheme's (defmacro ->foo () "bar\n")  */
 	processing_args = 0;
       else
-	{
-	  error (_("Unrecognized option '%.*s' to info macro command.  "
-		   "Try \"help info macro\"."),
-		 int (p - arg_start), arg_start);
-	}
+	report_unrecognized_option_error ("info macro", arg_start);
 
-        arg_start = skip_spaces (p);
+      arg_start = skip_spaces (p);
     }
 
   name = arg_start;

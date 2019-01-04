@@ -1,5 +1,5 @@
 # Expect script for tests for >64k sections
-#   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+#   Copyright (C) 2002-2019 Free Software Foundation, Inc.
 #
 # This file is part of the GNU Binutils.
 #
@@ -79,6 +79,8 @@ for { set i 0 } { $i < $max_sec / $secs_per_file } { incr i } {
 	puts $ofd "__start:"
 	puts $ofd " .global main"
 	puts $ofd "main:"
+	puts $ofd " .global _main"
+	puts $ofd "_main:"
 	puts $ofd " .global foo_0"
 	puts $ofd "foo_0: .dc.a 0"
     }

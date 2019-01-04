@@ -1,6 +1,6 @@
 /* Support for GDB maintenance commands.
 
-   Copyright (C) 1992-2018 Free Software Foundation, Inc.
+   Copyright (C) 1992-2019 Free Software Foundation, Inc.
 
    Written by Fred Fish at Cygnus Support.
 
@@ -444,7 +444,7 @@ maintenance_translate_address (const char *arg, int from_tty)
       while (*p && !isspace (*p))	/* Find end of section name.  */
 	p++;
       if (*p == '\000')		/* End of command?  */
-	error (_("Need to specify <section-name> and <address>"));
+	error (_("Need to specify section name and address"));
 
       int arg_len = p - arg;
       p = skip_spaces (p + 1);
@@ -943,7 +943,7 @@ maintenance_selftest (const char *args, int from_tty)
   selftests::run_tests (args);
 #else
   printf_filtered (_("\
-Selftests are not available in a non-development build.\n"));
+Selftests have been disabled for this build.\n"));
 #endif
 }
 
@@ -957,7 +957,7 @@ maintenance_info_selftests (const char *arg, int from_tty)
   });
 #else
   printf_filtered (_("\
-Selftests are not available in a non-development build.\n"));
+Selftests have been disabled for this build.\n"));
 #endif
 }
 

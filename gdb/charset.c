@@ -1,6 +1,6 @@
 /* Character set conversion support for GDB.
 
-   Copyright (C) 2001-2018 Free Software Foundation, Inc.
+   Copyright (C) 2001-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -548,7 +548,7 @@ convert_between_encodings (const char *from, const char *to,
 
       /* Now make sure that the object on the obstack only includes
 	 bytes we have converted.  */
-      obstack_blank_fast (output, -outleft);
+      obstack_blank_fast (output, -(ssize_t) outleft);
 
       if (r == (size_t) -1)
 	{

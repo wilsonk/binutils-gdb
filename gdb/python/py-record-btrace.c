@@ -1,6 +1,6 @@
 /* Python interface to btrace instruction history.
 
-   Copyright 2016-2018 Free Software Foundation, Inc.
+   Copyright 2016-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -273,7 +273,7 @@ PyObject *
 recpy_bt_insn_data (PyObject *self, void *closure)
 {
   const btrace_insn * const insn = btrace_insn_from_recpy_insn (self);
-  gdb_byte *buffer = NULL;
+  gdb::byte_vector buffer;
   PyObject *object;
 
   if (insn == NULL)
@@ -281,18 +281,17 @@ recpy_bt_insn_data (PyObject *self, void *closure)
 
   TRY
     {
-      buffer = (gdb_byte *) xmalloc (insn->size);
-      read_memory (insn->pc, buffer, insn->size);
+      buffer.resize (insn->size);
+      read_memory (insn->pc, buffer.data (), insn->size);
     }
   CATCH (except, RETURN_MASK_ALL)
     {
-      xfree (buffer);
       GDB_PY_HANDLE_EXCEPTION (except);
     }
   END_CATCH
 
-  object = PyBytes_FromStringAndSize ((const char*) buffer, insn->size);
-  xfree (buffer);
+  object = PyBytes_FromStringAndSize ((const char *) buffer.data (),
+				      insn->size);
 
   if (object == NULL)
     return NULL;
@@ -776,15 +775,17 @@ recpy_bt_goto (PyObject *self, PyObject *args)
   const recpy_record_object * const record = (recpy_record_object *) self;
   thread_info *const tinfo = record->thread;
   const recpy_element_object *obj;
+  PyObject *parse_obj;
 
   if (tinfo == NULL || btrace_is_empty (tinfo))
 	return PyErr_Format (gdbpy_gdb_error, _("Empty branch trace."));
 
-  if (!PyArg_ParseTuple (args, "O", &obj))
+  if (!PyArg_ParseTuple (args, "O", &parse_obj))
     return NULL;
 
-  if (Py_TYPE (obj) != &recpy_insn_type)
+  if (Py_TYPE (parse_obj) != &recpy_insn_type)
     return PyErr_Format (PyExc_TypeError, _("Argument must be instruction."));
+  obj = (const recpy_element_object *) parse_obj;
 
   TRY
     {

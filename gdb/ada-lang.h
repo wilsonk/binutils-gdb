@@ -1,6 +1,6 @@
 /* Ada language support definitions for GDB, the GNU debugger.
 
-   Copyright (C) 1992-2018 Free Software Foundation, Inc.
+   Copyright (C) 1992-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -193,6 +193,8 @@ extern void ada_printstr (struct ui_file *, struct type *, const gdb_byte *,
 
 struct value *ada_convert_actual (struct value *actual,
                                   struct type *formal_type0);
+
+extern bool ada_is_access_to_unconstrained_array (struct type *type);
 
 extern struct value *ada_value_subscript (struct value *, int,
                                           struct value **);

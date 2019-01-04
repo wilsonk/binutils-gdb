@@ -1,6 +1,6 @@
 /* Branch trace support for GDB, the GNU debugger.
 
-   Copyright (C) 2013-2018 Free Software Foundation, Inc.
+   Copyright (C) 2013-2019 Free Software Foundation, Inc.
 
    Contributed by Intel Corp. <markus.t.metzger@intel.com>
 
@@ -619,6 +619,20 @@ ftrace_update_function (struct btrace_thread_info *btinfo, CORE_ADDR pc)
 	    /* A jump to the start of a function is (typically) a tail call.  */
 	    if (start == pc)
 	      return ftrace_new_tailcall (btinfo, mfun, fun);
+
+	    /* Some versions of _Unwind_RaiseException use an indirect
+	       jump to 'return' to the exception handler of the caller
+	       handling the exception instead of a return.  Let's restrict
+	       this heuristic to that and related functions.  */
+	    const char *fname = ftrace_print_function_name (bfun);
+	    if (strncmp (fname, "_Unwind_", strlen ("_Unwind_")) == 0)
+	      {
+		struct btrace_function *caller
+		  = ftrace_find_call_by_number (btinfo, bfun->up);
+		caller = ftrace_find_caller (btinfo, caller, mfun, fun);
+		if (caller != NULL)
+		  return ftrace_new_return (btinfo, mfun, fun);
+	      }
 
 	    /* If we can't determine the function for PC, we treat a jump at
 	       the end of the block as tail call if we're switching functions
@@ -1989,11 +2003,9 @@ btrace_clear (struct thread_info *tp)
 void
 btrace_free_objfile (struct objfile *objfile)
 {
-  struct thread_info *tp;
-
   DEBUG ("free objfile");
 
-  ALL_NON_EXITED_THREADS (tp)
+  for (thread_info *tp : all_non_exited_threads ())
     btrace_clear (tp);
 }
 

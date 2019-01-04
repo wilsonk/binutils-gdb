@@ -1,6 +1,6 @@
 /* Multiple source language support for GDB.
 
-   Copyright (C) 1991-2018 Free Software Foundation, Inc.
+   Copyright (C) 1991-2019 Free Software Foundation, Inc.
 
    Contributed by the Department of Computer Science at the State University
    of New York at Buffalo.
@@ -106,10 +106,9 @@ static const struct language_defn *languages[] = {
   &zig_language_defn,
 };
 
-/* The current values of the "set language/type/range" enum
+/* The current values of the "set language/range/case-sensitive" enum
    commands.  */
 static const char *language;
-static const char *type;
 static const char *range;
 static const char *case_sensitive;
 
@@ -1174,10 +1173,9 @@ For Fortran the default is off; for other languages the default is on."),
 
   add_set_language_command ();
 
-  language = xstrdup ("auto");
-  type = xstrdup ("auto");
-  range = xstrdup ("auto");
-  case_sensitive = xstrdup ("auto");
+  language = "auto";
+  range = "auto";
+  case_sensitive = "auto";
 
   /* Have the above take effect.  */
   set_language (language_auto);

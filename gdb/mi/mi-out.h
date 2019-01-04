@@ -1,5 +1,5 @@
 /* MI Command Set - MI output generating routines for GDB.
-   Copyright (C) 2000-2018 Free Software Foundation, Inc.
+   Copyright (C) 2000-2019 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions (a Red Hat company).
 
    This file is part of GDB.
@@ -57,7 +57,8 @@ protected:
   virtual void do_field_skip (int fldno, int width, ui_align align,
 			   const char *fldname) override;
   virtual void do_field_string (int fldno, int width, ui_align align,
-			     const char *fldname, const char *string) override;
+				const char *fldname, const char *string,
+				ui_out_style_kind style) override;
   virtual void do_field_fmt (int fldno, int width, ui_align align,
 			  const char *fldname, const char *format, va_list args)
     override ATTRIBUTE_PRINTF (6,0);

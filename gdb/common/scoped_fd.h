@@ -1,6 +1,6 @@
 /* scoped_fd, automatically close a file descriptor
 
-   Copyright (C) 2018 Free Software Foundation, Inc.
+   Copyright (C) 2018-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -20,11 +20,8 @@
 #ifndef SCOPED_FD_H
 #define SCOPED_FD_H
 
-#include "config.h"
-
-#ifdef HAVE_UNISTD_H
-
 #include <unistd.h>
+#include "filestuff.h"
 
 /* A smart-pointer-like class to automatically close a file descriptor.  */
 
@@ -32,10 +29,29 @@ class scoped_fd
 {
 public:
   explicit scoped_fd (int fd = -1) noexcept : m_fd (fd) {}
+
+  scoped_fd (scoped_fd &&other)
+    : m_fd (other.m_fd)
+  {
+    other.m_fd = -1;
+  }
+
   ~scoped_fd ()
   {
     if (m_fd >= 0)
       close (m_fd);
+  }
+
+  scoped_fd &operator= (scoped_fd &&other)
+  {
+    if (m_fd != other.m_fd)
+      {
+	if (m_fd >= 0)
+	  close (m_fd);
+	m_fd = other.m_fd;
+	other.m_fd = -1;
+      }
+    return *this;
   }
 
   DISABLE_COPY_AND_ASSIGN (scoped_fd);
@@ -47,6 +63,18 @@ public:
     return fd;
   }
 
+  /* Like release, but return a gdb_file_up that owns the file
+     descriptor.  On success, this scoped_fd will be released.  On
+     failure, return NULL and leave this scoped_fd in possession of
+     the fd.  */
+  gdb_file_up to_file (const char *mode) noexcept
+  {
+    gdb_file_up result (fdopen (m_fd, mode));
+    if (result != nullptr)
+      m_fd = -1;
+    return result;
+  }
+
   int get () const noexcept
   {
     return m_fd;
@@ -56,5 +84,4 @@ private:
   int m_fd;
 };
 
-#endif /* HAVE_UNISTD_H */
 #endif /* SCOPED_FD_H */

@@ -1,6 +1,6 @@
 /* C language support routines for GDB, the GNU debugger.
 
-   Copyright (C) 1992-2018 Free Software Foundation, Inc.
+   Copyright (C) 1992-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -1017,8 +1017,8 @@ extern const struct language_defn cplus_language_defn =
   iterate_over_symbols,
   cp_search_name_hash,
   &cplus_varobj_ops,
-  NULL,
-  NULL,
+  cplus_get_compile_context,
+  cplus_compute_program,
   LANG_MAGIC
 };
 

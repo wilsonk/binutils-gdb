@@ -18,7 +18,7 @@ esac
 rm -f e${EMULATION_NAME}.c
 (echo;echo;echo;echo;echo)>e${EMULATION_NAME}.c # there, now line numbers match ;-)
 fragment <<EOF
-/* Copyright (C) 2006-2018 Free Software Foundation, Inc.
+/* Copyright (C) 2006-2019 Free Software Foundation, Inc.
    Written by Kai Tietz, OneVision Software GmbH&CoKg.
 
    This file is part of the GNU Binutils.
@@ -1962,7 +1962,7 @@ gld_${EMULATION_NAME}_place_orphan (asection *s,
 			       &add_child);
       if (bfd_link_relocatable (&link_info))
 	{
-	  os->section_alignment = s->alignment_power;
+	  os->section_alignment = exp_intop (1U << s->alignment_power);
 	  os->bfd_section->alignment_power = s->alignment_power;
 	}
     }

@@ -1,5 +1,5 @@
 /* x86 specific support for ELF
-   Copyright (C) 2017-2018 Free Software Foundation, Inc.
+   Copyright (C) 2017-2019 Free Software Foundation, Inc.
 
    This file is part of BFD, the Binary File Descriptor library.
 
@@ -23,7 +23,6 @@
 #include "bfdlink.h"
 #include "libbfd.h"
 #include "elf-bfd.h"
-#include "bfd_stdint.h"
 #include "hashtab.h"
 
 #define PLT_CIE_LENGTH		20
@@ -389,6 +388,9 @@ struct elf_x86_plt_layout
      This is only used for x86-64.  */
   unsigned int plt_got_insn_size;
 
+  /* Alignment of the .iplt section.  */
+  unsigned int iplt_alignment;
+
   /* .eh_frame covering the .plt section.  */
   const bfd_byte *eh_frame_plt;
   unsigned int eh_frame_plt_size;
@@ -684,6 +686,9 @@ extern enum elf_property_kind _bfd_x86_elf_parse_gnu_properties
 extern bfd_boolean _bfd_x86_elf_merge_gnu_properties
   (struct bfd_link_info *, bfd *, elf_property *, elf_property *);
 
+extern void _bfd_x86_elf_link_fixup_gnu_properties
+  (struct bfd_link_info *, elf_property_list **);
+
 extern bfd * _bfd_x86_elf_link_setup_gnu_properties
   (struct bfd_link_info *, struct elf_x86_init_table *);
 
@@ -726,3 +731,5 @@ extern void _bfd_x86_elf_link_fixup_ifunc_symbol
   _bfd_x86_elf_parse_gnu_properties
 #define elf_backend_merge_gnu_properties \
   _bfd_x86_elf_merge_gnu_properties
+#define elf_backend_fixup_gnu_properties \
+  _bfd_x86_elf_link_fixup_gnu_properties

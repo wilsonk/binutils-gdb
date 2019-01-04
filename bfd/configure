@@ -14089,7 +14089,7 @@ $as_echo "#define STRING_WITH_STRINGS 1" >>confdefs.h
 
 fi
 
-for ac_func in fcntl getpagesize setitimer sysconf fdopen getuid getgid fileno
+for ac_func in fcntl getpagesize setitimer sysconf fdopen getuid getgid fileno fls
 do :
   as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
 ac_fn_c_check_func "$LINENO" "$ac_func" "$as_ac_var"
@@ -14844,6 +14844,7 @@ do
     rx_elf32_be_vec)		 tb="$tb elf32-rx.lo elf32.lo $elf" ;;
     rx_elf32_be_ns_vec)		 tb="$tb elf32-rx.lo elf32.lo $elf" ;;
     rx_elf32_le_vec)		 tb="$tb elf32-rx.lo elf32.lo $elf" ;;
+    rx_elf32_linux_le_vec)	 tb="$tb elf32-rx.lo elf32.lo $elf" ;;
     s390_elf32_vec)		 tb="$tb elf32-s390.lo elf32.lo $elf" ;;
     s390_elf64_vec)		 tb="$tb elf64-s390.lo elf64.lo $elf"; target_size=64 ;;
     score_elf32_be_vec)		 tb="$tb elf32-score.lo elf32-score7.lo elf32.lo $elf"; want64=true; target_size=64 ;;

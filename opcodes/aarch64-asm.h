@@ -1,5 +1,5 @@
 /* aarch64-asm.h -- Header file for aarch64-asm.c and aarch64-asm-2.c.
-   Copyright (C) 2012-2018 Free Software Foundation, Inc.
+   Copyright (C) 2012-2019 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of the GNU opcodes library.
@@ -59,6 +59,7 @@ AARCH64_DECL_OPD_INSERTER (ins_limm);
 AARCH64_DECL_OPD_INSERTER (ins_inv_limm);
 AARCH64_DECL_OPD_INSERTER (ins_ft);
 AARCH64_DECL_OPD_INSERTER (ins_addr_simple);
+AARCH64_DECL_OPD_INSERTER (ins_addr_simple_2);
 AARCH64_DECL_OPD_INSERTER (ins_addr_offset);
 AARCH64_DECL_OPD_INSERTER (ins_addr_regoff);
 AARCH64_DECL_OPD_INSERTER (ins_addr_simm);

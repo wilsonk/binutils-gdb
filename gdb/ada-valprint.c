@@ -1,6 +1,6 @@
 /* Support for printing Ada values for GDB, the GNU debugger.
 
-   Copyright (C) 1986-2018 Free Software Foundation, Inc.
+   Copyright (C) 1986-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -1224,7 +1224,7 @@ ada_value_print (struct value *val0, struct ui_file *stream,
 {
   struct value *val = ada_to_fixed_value (val0);
   CORE_ADDR address = value_address (val);
-  struct type *type = ada_check_typedef (value_enclosing_type (val));
+  struct type *type = ada_check_typedef (value_type (val));
   struct value_print_options opts;
 
   /* If it is a pointer, indicate what it points to.  */

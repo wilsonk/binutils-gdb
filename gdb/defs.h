@@ -1,7 +1,7 @@
 /* *INDENT-OFF* */ /* ATTRIBUTE_PRINTF confuses indent, avoid running it
 		      for now.  */
 /* Basic, host-specific, and target-specific definitions for GDB.
-   Copyright (C) 1986-2018 Free Software Foundation, Inc.
+   Copyright (C) 1986-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -310,7 +310,7 @@ typedef void initialize_file_ftype (void);
 
 extern char *gdb_readline_wrapper (const char *);
 
-extern char *command_line_input (const char *, int, const char *);
+extern char *command_line_input (const char *, const char *);
 
 extern void print_prompt (void);
 
@@ -389,6 +389,9 @@ enum info_proc_what
 
     /* * Display `info proc cwd'.  */
     IP_CWD,
+
+    /* * Display `info proc files'.  */
+    IP_FILES,
 
     /* * Display all of the above.  */
     IP_ALL
@@ -496,6 +499,7 @@ enum gdb_osabi
   GDB_OSABI_LYNXOS178,
   GDB_OSABI_NEWLIB,
   GDB_OSABI_SDE,
+  GDB_OSABI_PIKEOS,
 
   GDB_OSABI_INVALID		/* keep this last */
 };

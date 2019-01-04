@@ -1,6 +1,6 @@
 /* CLI utilities.
 
-   Copyright (C) 2011-2018 Free Software Foundation, Inc.
+   Copyright (C) 2011-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -22,6 +22,8 @@
 #include "value.h"
 
 #include <ctype.h>
+
+static std::string extract_arg_maybe_quoted (const char **arg);
 
 /* See documentation in cli-utils.h.  */
 
@@ -58,15 +60,16 @@ get_number_trailer (const char **pp, int trailer)
 	     null-terminate it to pass to lookup_internalvar().  */
 	  char *varname;
 	  const char *start = ++p;
-	  LONGEST val;
+	  LONGEST longest_val;
 
 	  while (isalnum (*p) || *p == '_')
 	    p++;
 	  varname = (char *) alloca (p - start + 1);
 	  strncpy (varname, start, p - start);
 	  varname[p - start] = '\0';
-	  if (get_internalvar_integer (lookup_internalvar (varname), &val))
-	    retval = (int) val;
+	  if (get_internalvar_integer (lookup_internalvar (varname),
+				       &longest_val))
+	    retval = (int) longest_val;
 	  else
 	    {
 	      printf_filtered (_("Convenience variable must "
@@ -123,6 +126,70 @@ get_number (char **pp)
   result = get_number_trailer (&p, '\0');
   *pp = (char *) p;
   return result;
+}
+
+/* See documentation in cli-utils.h.  */
+
+bool
+extract_info_print_args (const char **args,
+			 bool *quiet,
+			 std::string *regexp,
+			 std::string *t_regexp)
+{
+  /* Check for NAMEREGEXP or -- NAMEREGEXP.  */
+  if (**args != '-' || check_for_argument (args, "--", 2))
+    {
+      *args = skip_spaces (*args);
+      *regexp = *args;
+      *args = NULL;
+      return true;
+    }
+
+  if (check_for_argument (args, "-t", 2))
+    {
+      *t_regexp = extract_arg_maybe_quoted (args);
+      *args = skip_spaces (*args);
+      return true;
+    }
+
+  if (check_for_argument (args, "-q", 2))
+    {
+      *quiet = true;
+      *args = skip_spaces (*args);
+      return true;
+    }
+
+  return false;
+}
+
+/* See documentation in cli-utils.h.  */
+
+void
+report_unrecognized_option_error (const char *command, const char *args)
+{
+  std::string option = extract_arg (&args);
+
+  error (_("Unrecognized option '%s' to %s command.  "
+	   "Try \"help %s\"."), option.c_str (),
+	 command, command);
+}
+
+/* See documentation in cli-utils.h.  */
+
+const char *
+info_print_args_help (const char *prefix,
+		      const char *entity_kind)
+{
+  return xstrprintf (_("\
+%sIf NAMEREGEXP is provided, only prints the %s whose name\n\
+matches NAMEREGEXP.\n\
+If -t TYPEREGEXP is provided, only prints the %s whose type\n\
+matches TYPEREGEXP.  Note that the matching is done with the type\n\
+printed by the 'whatis' command.\n\
+By default, the command might produce headers and/or messages indicating\n\
+why no %s can be printed.\n\
+The flag -q disables the production of these headers and messages."),
+		     prefix, entity_kind, entity_kind, entity_kind);
 }
 
 /* See documentation in cli-utils.h.  */
@@ -280,6 +347,69 @@ remove_trailing_whitespace (const char *start, const char *s)
     --s;
 
   return s;
+}
+
+/* A helper function to extract an argument from *ARG.  An argument is
+   delimited by whitespace, but it can also be optionally quoted.
+   The quoting and special characters are handled similarly to
+   the parsing done by gdb_argv.
+   The return value is empty if no argument was found.  */
+
+static std::string
+extract_arg_maybe_quoted (const char **arg)
+{
+  bool squote = false;
+  bool dquote = false;
+  bool bsquote = false;
+  std::string result;
+  const char *p = *arg;
+
+  /* Find the start of the argument.  */
+  p = skip_spaces (p);
+
+  /* Parse p similarly to gdb_argv buildargv function.  */
+  while (*p != '\0')
+    {
+      if (isspace (*p) && !squote && !dquote && !bsquote)
+	  break;
+      else
+	{
+	  if (bsquote)
+	    {
+	      bsquote = false;
+	      result += *p;
+	    }
+	  else if (*p == '\\')
+	      bsquote = true;
+	  else if (squote)
+	    {
+	      if (*p == '\'')
+		  squote = false;
+	      else
+		  result += *p;
+	    }
+	  else if (dquote)
+	    {
+	      if (*p == '"')
+		  dquote = false;
+	      else
+		  result += *p;
+	    }
+	  else
+	    {
+	      if (*p == '\'')
+		  squote = true;
+	      else if (*p == '"')
+		  dquote = true;
+	      else
+		  result += *p;
+	    }
+	  p++;
+	}
+    }
+
+  *arg = p;
+  return result;
 }
 
 /* See documentation in cli-utils.h.  */

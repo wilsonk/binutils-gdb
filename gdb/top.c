@@ -1,6 +1,6 @@
 /* Top level stuff for GDB, the GNU debugger.
 
-   Copyright (C) 1986-2018 Free Software Foundation, Inc.
+   Copyright (C) 1986-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -338,7 +338,7 @@ new_ui_command (const char *args, int from_tty)
   argc = argv.count ();
 
   if (argc < 2)
-    error (_("usage: new-ui <interpreter> <tty>"));
+    error (_("Usage: new-ui INTERPRETER TTY"));
 
   interpreter_name = argv[0];
   tty_name = argv[1];
@@ -418,7 +418,7 @@ read_command_file (FILE *stream)
       char *command;
 
       /* Get a command-line.  This calls the readline package.  */
-      command = command_line_input (NULL, 0, NULL);
+      command = command_line_input (NULL, NULL);
       if (command == NULL)
 	break;
       command_handler (command);
@@ -900,10 +900,10 @@ gdb_in_secondary_prompt_p (struct ui *ui)
    text.  */
 
 static void
-gdb_readline_wrapper_line (char *line)
+gdb_readline_wrapper_line (gdb::unique_xmalloc_ptr<char> &&line)
 {
   gdb_assert (!gdb_readline_wrapper_done);
-  gdb_readline_wrapper_result = line;
+  gdb_readline_wrapper_result = line.release ();
   gdb_readline_wrapper_done = 1;
 
   /* Prevent operate-and-get-next from acting too early.  */
@@ -972,7 +972,7 @@ public:
 
 private:
 
-  void (*m_handler_orig) (char *);
+  void (*m_handler_orig) (gdb::unique_xmalloc_ptr<char> &&);
   int m_already_prompted_orig;
 
   /* Whether the target was async.  */
@@ -1161,16 +1161,11 @@ gdb_safe_append_history (void)
 
    NULL is returned for end of file.
 
-   *If* input is from an interactive stream (stdin), the line read is
-   copied into the global 'saved_command_line' so that it can be
-   repeated.
-
    This routine either uses fancy command line editing or simple input
    as the user has requested.  */
 
 char *
-command_line_input (const char *prompt_arg, int repeat,
-		    const char *annotation_suffix)
+command_line_input (const char *prompt_arg, const char *annotation_suffix)
 {
   static struct buffer cmd_line_buffer;
   static int cmd_line_buffer_initialized;
@@ -1217,7 +1212,7 @@ command_line_input (const char *prompt_arg, int repeat,
 
   while (1)
     {
-      char *rl;
+      gdb::unique_xmalloc_ptr<char> rl;
 
       /* Make sure that all output has been output.  Some machines may
          let you get away with leaving out some of the gdb_flush, but
@@ -1241,21 +1236,21 @@ command_line_input (const char *prompt_arg, int repeat,
 	  && from_tty
 	  && input_interactive_p (current_ui))
 	{
-	  rl = (*deprecated_readline_hook) (prompt);
+	  rl.reset ((*deprecated_readline_hook) (prompt));
 	}
       else if (command_editing_p
 	       && from_tty
 	       && input_interactive_p (current_ui))
 	{
-	  rl = gdb_readline_wrapper (prompt);
+	  rl.reset (gdb_readline_wrapper (prompt));
 	}
       else
 	{
-	  rl = gdb_readline_no_editing (prompt);
+	  rl.reset (gdb_readline_no_editing (prompt));
 	}
 
-      cmd = handle_line_of_input (&cmd_line_buffer, rl,
-				  repeat, annotation_suffix);
+      cmd = handle_line_of_input (&cmd_line_buffer, rl.get (),
+				  0, annotation_suffix);
       if (cmd == (char *) EOF)
 	{
 	  cmd = NULL;
@@ -1286,12 +1281,19 @@ print_gdb_version (struct ui_file *stream, bool interactive)
      program to parse, and is just canonical program name and version
      number, which starts after last space.  */
 
-  fprintf_filtered (stream, "GNU gdb %s%s\n", PKGVERSION, version);
+  ui_file_style style;
+  if (interactive)
+    {
+      ui_file_style nstyle = { ui_file_style::MAGENTA, ui_file_style::NONE,
+			       ui_file_style::BOLD };
+      style = nstyle;
+    }
+  fprintf_styled (stream, style, "GNU gdb %s%s\n", PKGVERSION, version);
 
   /* Second line is a copyright notice.  */
 
   fprintf_filtered (stream,
-		    "Copyright (C) 2018 Free Software Foundation, Inc.\n");
+		    "Copyright (C) 2019 Free Software Foundation, Inc.\n");
 
   /* Following the copyright is a brief statement that the program is
      free software, that users are free to copy and change it on
@@ -1433,6 +1435,10 @@ This GDB was configured as follows:\n\
   fprintf_filtered (stream, _("\
              --with-python=%s%s\n\
 "), WITH_PYTHON_PATH, PYTHON_PATH_RELOCATABLE ? " (relocatable)" : "");
+#else
+  fprintf_filtered (stream, _("\
+             --without-python\n\
+"));
 #endif
 #if HAVE_GUILE
   fprintf_filtered (stream, _("\
@@ -1821,7 +1827,7 @@ show_history (const char *args, int from_tty)
 
 int info_verbose = 0;		/* Default verbose msgs off.  */
 
-/* Called by do_setshow_command.  An elaborate joke.  */
+/* Called by do_set_command.  An elaborate joke.  */
 void
 set_verbose (const char *args, int from_tty, struct cmd_list_element *c)
 {
@@ -1831,16 +1837,22 @@ set_verbose (const char *args, int from_tty, struct cmd_list_element *c)
   showcmd = lookup_cmd_1 (&cmdname, showlist, NULL, 1);
   gdb_assert (showcmd != NULL && showcmd != CMD_LIST_AMBIGUOUS);
 
+  if (c->doc && c->doc_allocated)
+    xfree ((char *) c->doc);
+  if (showcmd->doc && showcmd->doc_allocated)
+    xfree ((char *) showcmd->doc);
   if (info_verbose)
     {
-      c->doc = "Set verbose printing of informational messages.";
-      showcmd->doc = "Show verbose printing of informational messages.";
+      c->doc = _("Set verbose printing of informational messages.");
+      showcmd->doc = _("Show verbose printing of informational messages.");
     }
   else
     {
-      c->doc = "Set verbosity.";
-      showcmd->doc = "Show verbosity.";
+      c->doc = _("Set verbosity.");
+      showcmd->doc = _("Show verbosity.");
     }
+  c->doc_allocated = 0;
+  showcmd->doc_allocated = 0;
 }
 
 /* Init the history buffer.  Note that we are called after the init file(s)
@@ -1851,7 +1863,7 @@ set_verbose (const char *args, int from_tty, struct cmd_list_element *c)
 void
 init_history (void)
 {
-  char *tmpenv;
+  const char *tmpenv;
 
   tmpenv = getenv ("GDBHISTSIZE");
   if (tmpenv)

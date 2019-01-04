@@ -1,5 +1,5 @@
 /* Low level interface to ptrace, for the remote server for GDB.
-   Copyright (C) 1995-2018 Free Software Foundation, Inc.
+   Copyright (C) 1995-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -951,10 +951,10 @@ add_lwp (ptid_t ptid)
 
   lwp->waitstatus.kind = TARGET_WAITKIND_IGNORE;
 
+  lwp->thread = add_thread (ptid, lwp);
+
   if (the_low_target.new_thread != NULL)
     the_low_target.new_thread (lwp);
-
-  lwp->thread = add_thread (ptid, lwp);
 
   return lwp;
 }
@@ -1255,7 +1255,7 @@ last_thread_of_process_p (int pid)
 {
   bool seen_one = false;
 
-  thread_info *thread = find_thread (pid, [&] (thread_info *thread)
+  thread_info *thread = find_thread (pid, [&] (thread_info *thr_arg)
     {
       if (!seen_one)
 	{
@@ -1670,12 +1670,12 @@ linux_mourn (struct process_info *process)
 }
 
 static void
-linux_join (process_info *proc)
+linux_join (int pid)
 {
   int status, ret;
 
   do {
-    ret = my_waitpid (proc->pid, &status, 0);
+    ret = my_waitpid (pid, &status, 0);
     if (WIFEXITED (status) || WIFSIGNALED (status))
       break;
   } while (ret != -1 || errno != ECHILD);
@@ -1811,10 +1811,10 @@ status_pending_p_callback (thread_info *thread, ptid_t ptid)
 struct lwp_info *
 find_lwp_pid (ptid_t ptid)
 {
-  thread_info *thread = find_thread ([&] (thread_info *thread)
+  thread_info *thread = find_thread ([&] (thread_info *thr_arg)
     {
       int lwp = ptid.lwp () != 0 ? ptid.lwp () : ptid.pid ();
-      return thread->id.lwp () == lwp;
+      return thr_arg->id.lwp () == lwp;
     });
 
   if (thread == NULL)
@@ -1845,9 +1845,9 @@ iterate_over_lwps (ptid_t filter,
 		   iterate_over_lwps_ftype callback,
 		   void *data)
 {
-  thread_info *thread = find_thread (filter, [&] (thread_info *thread)
+  thread_info *thread = find_thread (filter, [&] (thread_info *thr_arg)
     {
-      lwp_info *lwp = get_thread_lwp (thread);
+      lwp_info *lwp = get_thread_lwp (thr_arg);
 
       return callback (lwp, data);
     });
@@ -7032,16 +7032,16 @@ linux_qxfer_libraries_svr4 (const char *annex, unsigned char *readbuf,
     {
       const char *sep;
       CORE_ADDR *addrp;
-      int len;
+      int name_len;
 
       sep = strchr (annex, '=');
       if (sep == NULL)
 	break;
 
-      len = sep - annex;
-      if (len == 5 && startswith (annex, "start"))
+      name_len = sep - annex;
+      if (name_len == 5 && startswith (annex, "start"))
 	addrp = &lm_addr;
-      else if (len == 4 && startswith (annex, "prev"))
+      else if (name_len == 4 && startswith (annex, "prev"))
 	addrp = &lm_prev;
       else
 	{

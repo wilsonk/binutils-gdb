@@ -1,6 +1,6 @@
 /* Support routines for decoding "stabs" debugging information format.
 
-   Copyright (C) 1986-2018 Free Software Foundation, Inc.
+   Copyright (C) 1986-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -616,13 +616,9 @@ stab_reg_to_regnum (struct symbol *sym, struct gdbarch *gdbarch)
 {
   int regno = gdbarch_stab_reg_to_regnum (gdbarch, SYMBOL_VALUE (sym));
 
-  if (regno < 0
-      || regno >= (gdbarch_num_regs (gdbarch)
-		   + gdbarch_num_pseudo_regs (gdbarch)))
+  if (regno < 0 || regno >= gdbarch_num_cooked_regs (gdbarch))
     {
-      reg_value_complaint (regno,
-			   gdbarch_num_regs (gdbarch)
-			     + gdbarch_num_pseudo_regs (gdbarch),
+      reg_value_complaint (regno, gdbarch_num_cooked_regs (gdbarch),
 			   SYMBOL_PRINT_NAME (sym));
 
       regno = gdbarch_sp_regnum (gdbarch); /* Known safe, though useless.  */

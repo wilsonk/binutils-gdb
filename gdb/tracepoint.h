@@ -1,5 +1,5 @@
 /* Data structures associated with tracepoints in GDB.
-   Copyright (C) 1997-2018 Free Software Foundation, Inc.
+   Copyright (C) 1997-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -435,5 +435,8 @@ extern int traceframe_available_memory (std::vector<mem_range> *result,
 extern struct traceframe_info *get_traceframe_info (void);
 
 extern struct bp_location *get_traceframe_location (int *stepping_frame_p);
+
+/* Command element for the 'while-stepping' command.  */
+extern cmd_list_element *while_stepping_cmd_element;
 
 #endif	/* TRACEPOINT_H */

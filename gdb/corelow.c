@@ -1,6 +1,6 @@
 /* Core dump and executable file functions below target vector, for GDB.
 
-   Copyright (C) 1986-2018 Free Software Foundation, Inc.
+   Copyright (C) 1986-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -31,6 +31,7 @@
 #include "command.h"
 #include "bfd.h"
 #include "target.h"
+#include "process-stratum-target.h"
 #include "gdbcore.h"
 #include "gdbthread.h"
 #include "regcache.h"
@@ -61,7 +62,7 @@ static const target_info core_target_info = {
   N_("Use a core file as a target.  Specify the filename of the core file.")
 };
 
-class core_target final : public target_ops
+class core_target final : public process_stratum_target
 {
 public:
   core_target ();
@@ -89,9 +90,12 @@ public:
 
   const char *thread_name (struct thread_info *) override;
 
+  bool has_all_memory () override { return false; }
   bool has_memory () override;
   bool has_stack () override;
   bool has_registers () override;
+  bool has_execution (ptid_t) override { return false; }
+
   bool info_proc (const char *, enum info_proc_what) override;
 
   /* A few helpers.  */
@@ -132,8 +136,6 @@ private: /* per-core data */
 
 core_target::core_target ()
 {
-  to_stratum = process_stratum;
-
   m_core_gdbarch = gdbarch_from_bfd (core_bfd);
 
   /* Find a suitable core file handler to munch on core_bfd */
@@ -420,12 +422,6 @@ core_target_open (const char *arg, int from_tty)
 
   push_target (target);
   target_holder.release ();
-
-  /* Do this before acknowledging the inferior, so if
-     post_create_inferior throws (can happen easilly if you're loading
-     a core file with the wrong exec), we aren't left with threads
-     from the previous inferior.  */
-  init_thread_list ();
 
   inferior_ptid = null_ptid;
 

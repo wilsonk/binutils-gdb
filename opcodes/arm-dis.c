@@ -1,5 +1,5 @@
 /* Instruction printing code for the ARM
-   Copyright (C) 1994-2018 Free Software Foundation, Inc.
+   Copyright (C) 1994-2019 Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (rwe@pegasus.esprit.ec.org)
    Modification by James G. Smith (jsmith@cygnus.co.uk)
 
@@ -32,6 +32,7 @@
 /* FIXME: This shouldn't be done here.  */
 #include "coff/internal.h"
 #include "libcoff.h"
+#include "bfd.h"
 #include "elf-bfd.h"
 #include "elf/internal.h"
 #include "elf/arm.h"
@@ -141,6 +142,8 @@ enum opcode_sentinel_enum
 } opcode_sentinels;
 
 #define UNDEFINED_INSTRUCTION      "\t\t; <UNDEFINED> instruction: %0-31x"
+#define UNKNOWN_INSTRUCTION_32BIT  "\t\t; <UNDEFINED> instruction: %08x"
+#define UNKNOWN_INSTRUCTION_16BIT  "\t\t; <UNDEFINED> instruction: %04x"
 #define UNPREDICTABLE_INSTRUCTION  "\t; <UNPREDICTABLE>"
 
 /* Common coprocessor opcodes shared between Arm and Thumb-2.  */
@@ -1906,6 +1909,9 @@ static const struct opcode32 arm_opcodes[] =
   {ARM_FEATURE_CORE_LOW (ARM_EXT_V6K),
     0x01e00f90, 0x0ff00ff0, "strexh%c\t%12-15R, %0-3R, [%16-19R]"},
 
+  /* ARMv8.5-A instructions.  */
+  {ARM_FEATURE_CORE_HIGH (ARM_EXT2_SB), 0xf57ff070, 0xffffffff, "sb"},
+
   /* ARM V6K NOP hints.  */
   {ARM_FEATURE_CORE_LOW (ARM_EXT_V6K),
     0x0320f001, 0x0fffffff, "yield%c"},
@@ -2828,6 +2834,9 @@ static const struct opcode32 thumb32_opcodes[] =
 
   /* Security extension instructions.  */
   {ARM_FEATURE_CORE_LOW (ARM_EXT_SEC),  0xf7f08000, 0xfff0f000, "smc%c\t%K"},
+
+  /* ARMv8.5-A instructions.  */
+  {ARM_FEATURE_CORE_HIGH (ARM_EXT2_SB), 0xf3bf8f70, 0xffffffff, "sb"},
 
   /* Instructions defined in the basic V6T2 set.  */
   {ARM_FEATURE_CORE_LOW (ARM_EXT_V6T2), 0xf3af8000, 0xffffffff, "nop%c.w"},
@@ -5188,7 +5197,8 @@ print_insn_arm (bfd_vma pc, struct disassemble_info *info, long given)
 	  return;
 	}
     }
-  abort ();
+  func (stream, UNKNOWN_INSTRUCTION_32BIT, (unsigned)given);
+  return;
 }
 
 /* Print one 16-bit Thumb instruction from PC on INFO->STREAM.  */
@@ -5459,7 +5469,8 @@ print_insn_thumb16 (bfd_vma pc, struct disassemble_info *info, long given)
       }
 
   /* No match.  */
-  abort ();
+  func (stream, UNKNOWN_INSTRUCTION_16BIT, (unsigned)given);
+  return;
 }
 
 /* Return the name of an V7M special register.  */
@@ -6083,7 +6094,8 @@ print_insn_thumb32 (bfd_vma pc, struct disassemble_info *info, long given)
       }
 
   /* No match.  */
-  abort ();
+  func (stream, UNKNOWN_INSTRUCTION_32BIT, (unsigned)given);
+  return;
 }
 
 /* Print data bytes on INFO->STREAM.  */
@@ -6441,11 +6453,11 @@ select_arm_features (unsigned long mach,
     case bfd_mach_arm_7EM:	 ARM_SET_FEATURES (ARM_ARCH_V7EM); break;
     case bfd_mach_arm_8:
 	{
-	  /* Add bits for extensions that Armv8.4-A recognizes.  */
-	  arm_feature_set armv8_4_ext_fset
-	    = ARM_FEATURE_CORE_HIGH (ARM_EXT2_FP16_INST | ARM_EXT2_FP16_FML);
-	  ARM_SET_FEATURES (ARM_ARCH_V8_4A);
-	  ARM_MERGE_FEATURE_SETS (arch_fset, arch_fset, armv8_4_ext_fset);
+	  /* Add bits for extensions that Armv8.5-A recognizes.  */
+	  arm_feature_set armv8_5_ext_fset
+	    = ARM_FEATURE_CORE_HIGH (ARM_EXT2_FP16_INST);
+	  ARM_SET_FEATURES (ARM_ARCH_V8_5A);
+	  ARM_MERGE_FEATURE_SETS (arch_fset, arch_fset, armv8_5_ext_fset);
 	  break;
 	}
     case bfd_mach_arm_8R:	 ARM_SET_FEATURES (ARM_ARCH_V8R); break;

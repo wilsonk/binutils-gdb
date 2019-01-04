@@ -1,6 +1,6 @@
 /* GDB CLI commands.
 
-   Copyright (C) 2000-2018 Free Software Foundation, Inc.
+   Copyright (C) 2000-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -38,6 +38,7 @@
 #include "tracepoint.h"
 #include "filestuff.h"
 #include "location.h"
+#include "block.h"
 
 #include "ui-out.h"
 
@@ -49,6 +50,7 @@
 #include "cli/cli-utils.h"
 
 #include "extension.h"
+#include "common/pathstuff.h"
 
 #ifdef TUI
 #include "tui/tui.h"	/* For tui_active et.al.  */
@@ -687,6 +689,8 @@ echo_command (const char *text, int from_tty)
 	  printf_filtered ("%c", c);
       }
 
+  reset_terminal_style (gdb_stdout);
+
   /* Force this output to appear now.  */
   wrap_here ("");
   gdb_flush (gdb_stdout);
@@ -725,12 +729,9 @@ shell_escape (const char *arg, int from_tty)
 
   if ((pid = vfork ()) == 0)
     {
-      const char *p, *user_shell;
+      const char *p, *user_shell = get_shell ();
 
       close_most_fds ();
-
-      if ((user_shell = (char *) getenv ("SHELL")) == NULL)
-	user_shell = "/bin/sh";
 
       /* Get the name of the shell for arg0.  */
       p = lbasename (user_shell);
@@ -849,8 +850,8 @@ edit_command (const char *arg, int from_tty)
         error (_("No line number known for %s."), arg);
     }
 
-  if ((editor = (char *) getenv ("EDITOR")) == NULL)
-      editor = "/bin/ex";
+  if ((editor = getenv ("EDITOR")) == NULL)
+    editor = "/bin/ex";
 
   fn = symtab_to_fullname (sal.symtab);
 
@@ -1091,11 +1092,15 @@ list_command (const char *arg, int from_tty)
    Perform the disassembly.
    NAME is the name of the function if known, or NULL.
    [LOW,HIGH) are the range of addresses to disassemble.
+   BLOCK is the block to disassemble; it needs to be provided
+   when non-contiguous blocks are disassembled; otherwise
+   it can be NULL.
    MIXED is non-zero to print source with the assembler.  */
 
 static void
 print_disassembly (struct gdbarch *gdbarch, const char *name,
 		   CORE_ADDR low, CORE_ADDR high,
+		   const struct block *block,
 		   gdb_disassembly_flags flags)
 {
 #if defined(TUI)
@@ -1104,14 +1109,29 @@ print_disassembly (struct gdbarch *gdbarch, const char *name,
     {
       printf_filtered ("Dump of assembler code ");
       if (name != NULL)
-        printf_filtered ("for function %s:\n", name);
+	printf_filtered ("for function %s:\n", name);
+      if (block == nullptr || BLOCK_CONTIGUOUS_P (block))
+        {
+	  if (name == NULL)
+	    printf_filtered ("from %s to %s:\n",
+			     paddress (gdbarch, low), paddress (gdbarch, high));
+
+	  /* Dump the specified range.  */
+	  gdb_disassembly (gdbarch, current_uiout, flags, -1, low, high);
+	}
       else
-        printf_filtered ("from %s to %s:\n",
-			 paddress (gdbarch, low), paddress (gdbarch, high));
-
-      /* Dump the specified range.  */
-      gdb_disassembly (gdbarch, current_uiout, flags, -1, low, high);
-
+        {
+	  for (int i = 0; i < BLOCK_NRANGES (block); i++)
+	    {
+	      CORE_ADDR range_low = BLOCK_RANGE_START (block, i);
+	      CORE_ADDR range_high = BLOCK_RANGE_END (block, i);
+	      printf_filtered (_("Address range %s to %s:\n"),
+			       paddress (gdbarch, range_low),
+			       paddress (gdbarch, range_high));
+	      gdb_disassembly (gdbarch, current_uiout, flags, -1,
+			       range_low, range_high);
+	    }
+	}
       printf_filtered ("End of assembler dump.\n");
       gdb_flush (gdb_stdout);
     }
@@ -1133,11 +1153,12 @@ disassemble_current_function (gdb_disassembly_flags flags)
   struct gdbarch *gdbarch;
   CORE_ADDR low, high, pc;
   const char *name;
+  const struct block *block;
 
   frame = get_selected_frame (_("No frame selected."));
   gdbarch = get_frame_arch (frame);
   pc = get_frame_address_in_block (frame);
-  if (find_pc_partial_function (pc, &name, &low, &high) == 0)
+  if (find_pc_partial_function (pc, &name, &low, &high, &block) == 0)
     error (_("No function contains program counter for selected frame."));
 #if defined(TUI)
   /* NOTE: cagney/2003-02-13 The `tui_active' was previously
@@ -1148,7 +1169,7 @@ disassemble_current_function (gdb_disassembly_flags flags)
 #endif
   low += gdbarch_deprecated_function_start_offset (gdbarch);
 
-  print_disassembly (gdbarch, name, low, high, flags);
+  print_disassembly (gdbarch, name, low, high, block, flags);
 }
 
 /* Dump a specified section of assembly code.
@@ -1184,6 +1205,7 @@ disassemble_command (const char *arg, int from_tty)
   CORE_ADDR pc;
   gdb_disassembly_flags flags;
   const char *p;
+  const struct block *block = nullptr;
 
   p = arg;
   name = NULL;
@@ -1234,7 +1256,7 @@ disassemble_command (const char *arg, int from_tty)
   if (p[0] == '\0')
     {
       /* One argument.  */
-      if (find_pc_partial_function (pc, &name, &low, &high) == 0)
+      if (find_pc_partial_function (pc, &name, &low, &high, &block) == 0)
 	error (_("No function contains specified address."));
 #if defined(TUI)
       /* NOTE: cagney/2003-02-13 The `tui_active' was previously
@@ -1262,7 +1284,7 @@ disassemble_command (const char *arg, int from_tty)
 	high += low;
     }
 
-  print_disassembly (gdbarch, name, low, high, flags);
+  print_disassembly (gdbarch, name, low, high, block, flags);
 }
 
 static void

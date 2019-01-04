@@ -1,5 +1,5 @@
 /* tc-s12z.c -- Assembler code for the Freescale S12Z
-   Copyright (C) 2018 Free Software Foundation, Inc.
+   Copyright (C) 2018-2019 Free Software Foundation, Inc.
 
    This file is part of GAS, the GNU Assembler.
 
@@ -22,7 +22,7 @@
 #include "safe-ctype.h"
 #include "subsegs.h"
 #include "dwarf2dbg.h"
-#include "opcodes/s12z.h"
+#include "opcode/s12z.h"
 #include <stdint.h>
 #include <limits.h>
 #include <stdbool.h>
@@ -614,31 +614,33 @@ lex_opr (uint8_t *buffer, int *n_bytes, expressionS *exp)
       buffer[3] = 0;
       if (exp->X_op == O_constant)
 	{
-	  if (exp->X_add_number < (0x1U << 14))
+	  valueT value = exp->X_add_number;
+
+	  if (value < (0x1U << 14))
 	    {
 	      *xb = 0x00;
 	      *n_bytes = 2;
-	      *xb |= exp->X_add_number >> 8;
-	      buffer[1] = exp->X_add_number;
+	      *xb |= value >> 8;
+	      buffer[1] = value;
 	    }
-	  else if (exp->X_add_number < (0x1U << 19))
+	  else if (value < (0x1U << 19))
 	    {
 	      *xb = 0xf8;
-	      if (exp->X_add_number & (0x1U << 17))
+	      if (value & (0x1U << 17))
 		*xb |= 0x04;
-	      if (exp->X_add_number & (0x1U << 16))
+	      if (value & (0x1U << 16))
 		*xb |= 0x01;
 	      *n_bytes = 3;
-	      buffer[1] = exp->X_add_number >> 8;
-	      buffer[2] = exp->X_add_number;
+	      buffer[1] = value >> 8;
+	      buffer[2] = value;
 	    }
 	  else
 	    {
 	      *xb = 0xfa;
 	      *n_bytes = 4;
-	      buffer[1] = exp->X_add_number >> 16;
-	      buffer[2] = exp->X_add_number >> 8;
-	      buffer[3] = exp->X_add_number;
+	      buffer[1] = value >> 16;
+	      buffer[2] = value >> 8;
+	      buffer[3] = value;
 	    }
 	}
       return 1;
@@ -3140,7 +3142,9 @@ static const struct instruction opcodes[] = {
   {"bhi", 1,   0x22,  rel, 0},
   {"bls", 1,   0x23,  rel, 0},
   {"bcc", 1,   0x24,  rel, 0},
+  {"bhs", 1,   0x24,  rel, 0}, /* Alias for bcc */
   {"bcs", 1,   0x25,  rel, 0},
+  {"blo", 1,   0x25,  rel, 0}, /* Alias for bcs */
   {"bne", 1,   0x26,  rel, 0},
   {"beq", 1,   0x27,  rel, 0},
   {"bvc", 1,   0x28,  rel, 0},
@@ -3812,6 +3816,9 @@ md_apply_fix (fixS *fixP, valueT *valP, segT seg ATTRIBUTE_UNUSED)
     {
     case BFD_RELOC_8:
       ((bfd_byte *) where)[0] = (bfd_byte) value;
+      break;
+    case BFD_RELOC_16:
+      bfd_putb16 ((bfd_vma) value, (unsigned char *) where);
       break;
     case BFD_RELOC_24:
       bfd_putb24 ((bfd_vma) value, (unsigned char *) where);

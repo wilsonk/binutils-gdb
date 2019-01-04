@@ -1,6 +1,6 @@
 /* Python interface to inferiors.
 
-   Copyright (C) 2009-2018 Free Software Foundation, Inc.
+   Copyright (C) 2009-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -86,8 +86,8 @@ python_on_normal_stop (struct bpstats *bs, int print_frame)
   if (!gdb_python_initialized)
     return;
 
-  if (!find_thread_ptid (inferior_ptid))
-      return;
+  if (inferior_ptid == null_ptid)
+    return;
 
   stop_signal = inferior_thread ()->suspend.stop_signal;
 
@@ -208,7 +208,7 @@ python_new_objfile (struct objfile *objfile)
    return it and increment the reference count,  otherwise, create it.
    Return NULL on failure.  */
 
-inferior_object *
+gdbpy_ref<inferior_object>
 inferior_to_inferior_object (struct inferior *inferior)
 {
   inferior_object *inf_obj;
@@ -218,7 +218,7 @@ inferior_to_inferior_object (struct inferior *inferior)
     {
       inf_obj = PyObject_New (inferior_object, &inferior_object_type);
       if (!inf_obj)
-	  return NULL;
+	return NULL;
 
       inf_obj->inferior = inferior;
       inf_obj->threads = NULL;
@@ -227,13 +227,11 @@ inferior_to_inferior_object (struct inferior *inferior)
       /* PyObject_New initializes the new object with a refcount of 1.  This
 	 counts for the reference we are keeping in the inferior data.  */
       set_inferior_data (inferior, infpy_inf_data_key, inf_obj);
-
     }
 
   /* We are returning a new reference.  */
-  Py_INCREF ((PyObject *)inf_obj);
-
-  return inf_obj;
+  gdb_assert (inf_obj != nullptr);
+  return gdbpy_ref<inferior_object>::new_reference (inf_obj);
 }
 
 /* Called when a new inferior is created.  Notifies any Python event
@@ -249,14 +247,14 @@ python_new_inferior (struct inferior *inf)
   if (evregpy_no_listeners_p (gdb_py_events.new_inferior))
     return;
 
-  gdbpy_ref<inferior_object> inf_obj (inferior_to_inferior_object (inf));
+  gdbpy_ref<inferior_object> inf_obj = inferior_to_inferior_object (inf);
   if (inf_obj == NULL)
     {
       gdbpy_print_stack ();
       return;
     }
 
-  gdbpy_ref<> event (create_event_object (&new_inferior_event_object_type));
+  gdbpy_ref<> event = create_event_object (&new_inferior_event_object_type);
   if (event == NULL
       || evpy_add_attribute (event.get (), "inferior",
 			     (PyObject *) inf_obj.get ()) < 0
@@ -277,14 +275,14 @@ python_inferior_deleted (struct inferior *inf)
   if (evregpy_no_listeners_p (gdb_py_events.inferior_deleted))
     return;
 
-  gdbpy_ref<inferior_object> inf_obj (inferior_to_inferior_object (inf));
+  gdbpy_ref<inferior_object> inf_obj = inferior_to_inferior_object (inf);
   if (inf_obj == NULL)
     {
       gdbpy_print_stack ();
       return;
     }
 
-  gdbpy_ref<> event (create_event_object (&inferior_deleted_event_object_type));
+  gdbpy_ref<> event = create_event_object (&inferior_deleted_event_object_type);
   if (event == NULL
       || evpy_add_attribute (event.get (), "inferior",
 			     (PyObject *) inf_obj.get ()) < 0
@@ -292,24 +290,10 @@ python_inferior_deleted (struct inferior *inf)
     gdbpy_print_stack ();
 }
 
-/* Finds the Python Inferior object for the given PID.  Returns a
-   reference, or NULL if PID does not match any inferior object. */
-
-PyObject *
-find_inferior_object (int pid)
-{
-  struct inferior *inf = find_inferior_pid (pid);
-
-  if (inf)
-    return (PyObject *) inferior_to_inferior_object (inf);
-
-  return NULL;
-}
-
-thread_object *
+gdbpy_ref<>
 thread_to_thread_object (thread_info *thr)
 {
-  gdbpy_ref<inferior_object> inf_obj (inferior_to_inferior_object (thr->inf));
+  gdbpy_ref<inferior_object> inf_obj = inferior_to_inferior_object (thr->inf);
   if (inf_obj == NULL)
     return NULL;
 
@@ -317,8 +301,10 @@ thread_to_thread_object (thread_info *thr)
        thread != NULL;
        thread = thread->next)
     if (thread->thread_obj->thread == thr)
-      return thread->thread_obj;
+      return gdbpy_ref<>::new_reference ((PyObject *) thread->thread_obj);
 
+  PyErr_SetString (PyExc_SystemError,
+		   _("could not find gdb thread object"));
   return NULL;
 }
 
@@ -353,8 +339,8 @@ add_thread_object (struct thread_info *tp)
   if (evregpy_no_listeners_p (gdb_py_events.new_thread))
     return;
 
-  gdbpy_ref<> event (create_thread_event_object (&new_thread_event_object_type,
-						 (PyObject *) thread_obj));
+  gdbpy_ref<> event = create_thread_event_object (&new_thread_event_object_type,
+						  (PyObject *) thread_obj);
   if (event == NULL
       || evpy_emit_event (event.get (), gdb_py_events.new_thread) < 0)
     gdbpy_print_stack ();
@@ -370,8 +356,7 @@ delete_thread_object (struct thread_info *tp, int ignore)
 
   gdbpy_enter enter_py (python_gdbarch, python_language);
 
-  gdbpy_ref<inferior_object> inf_obj
-    ((inferior_object *) inferior_to_inferior_object (tp->inf));
+  gdbpy_ref<inferior_object> inf_obj = inferior_to_inferior_object (tp->inf);
   if (inf_obj == NULL)
     return;
 
@@ -459,11 +444,26 @@ infpy_get_was_attached (PyObject *self, void *closure)
   Py_RETURN_FALSE;
 }
 
+/* Getter of gdb.Inferior.progspace.  */
+
+static PyObject *
+infpy_get_progspace (PyObject *self, void *closure)
+{
+  inferior_object *inf = (inferior_object *) self;
+
+  INFPY_REQUIRE_VALID (inf);
+
+  program_space *pspace = inf->inferior->pspace;
+  gdb_assert (pspace != nullptr);
+
+  return pspace_to_pspace_object (pspace).release ();
+}
+
 static int
 build_inferior_list (struct inferior *inf, void *arg)
 {
   PyObject *list = (PyObject *) arg;
-  gdbpy_ref<inferior_object> inferior (inferior_to_inferior_object (inf));
+  gdbpy_ref<inferior_object> inferior = inferior_to_inferior_object (inf);
 
   if (inferior == NULL)
     return 0;
@@ -496,7 +496,7 @@ static PyObject *
 infpy_read_memory (PyObject *self, PyObject *args, PyObject *kw)
 {
   CORE_ADDR addr, length;
-  gdb_byte *buffer = NULL;
+  gdb::unique_xmalloc_ptr<gdb_byte> buffer;
   PyObject *addr_obj, *length_obj, *result;
   static const char *keywords[] = { "address", "length", NULL };
 
@@ -510,13 +510,12 @@ infpy_read_memory (PyObject *self, PyObject *args, PyObject *kw)
 
   TRY
     {
-      buffer = (gdb_byte *) xmalloc (length);
+      buffer.reset ((gdb_byte *) xmalloc (length));
 
-      read_memory (addr, buffer, length);
+      read_memory (addr, buffer.get (), length);
     }
   CATCH (except, RETURN_MASK_ALL)
     {
-      xfree (buffer);
       GDB_PY_HANDLE_EXCEPTION (except);
     }
   END_CATCH
@@ -524,12 +523,9 @@ infpy_read_memory (PyObject *self, PyObject *args, PyObject *kw)
   gdbpy_ref<membuf_object> membuf_obj (PyObject_New (membuf_object,
 						     &membuf_object_type));
   if (membuf_obj == NULL)
-    {
-      xfree (buffer);
-      return NULL;
-    }
+    return NULL;
 
-  membuf_obj->buffer = buffer;
+  membuf_obj->buffer = buffer.release ();
   membuf_obj->addr = addr;
   membuf_obj->length = length;
 
@@ -814,10 +810,10 @@ infpy_is_valid (PyObject *self, PyObject *args)
 /* Implementation of gdb.Inferior.thread_from_thread_handle (self, handle)
                         ->  gdb.InferiorThread.  */
 
-PyObject *
+static PyObject *
 infpy_thread_from_thread_handle (PyObject *self, PyObject *args, PyObject *kw)
 {
-  PyObject *handle_obj, *result;
+  PyObject *handle_obj;
   inferior_object *inf_obj = (inferior_object *) self;
   static const char *keywords[] = { "thread_handle", NULL };
 
@@ -826,8 +822,6 @@ infpy_thread_from_thread_handle (PyObject *self, PyObject *args, PyObject *kw)
   if (! gdb_PyArg_ParseTupleAndKeywords (args, kw, "O", keywords, &handle_obj))
     return NULL;
 
-  result = Py_None;
-
   if (!gdbpy_is_value_object (handle_obj))
     {
       PyErr_SetString (PyExc_TypeError,
@@ -835,29 +829,50 @@ infpy_thread_from_thread_handle (PyObject *self, PyObject *args, PyObject *kw)
 
       return NULL;
     }
-  else
+
+  TRY
     {
-      TRY
-	{
-	  struct thread_info *thread_info;
-	  struct value *val = value_object_to_value (handle_obj);
+      struct thread_info *thread_info;
+      struct value *val = value_object_to_value (handle_obj);
 
-	  thread_info = find_thread_by_handle (val, inf_obj->inferior);
-	  if (thread_info != NULL)
-	    {
-	      result = (PyObject *) thread_to_thread_object (thread_info);
-	      if (result != NULL)
-		Py_INCREF (result);
-	    }
-	}
-      CATCH (except, RETURN_MASK_ALL)
-	{
-	  GDB_PY_HANDLE_EXCEPTION (except);
-	}
-      END_CATCH
+      thread_info = find_thread_by_handle (val, inf_obj->inferior);
+      if (thread_info != NULL)
+	return thread_to_thread_object (thread_info).release ();
     }
+  CATCH (except, RETURN_MASK_ALL)
+    {
+      GDB_PY_HANDLE_EXCEPTION (except);
+    }
+  END_CATCH
 
-  return result;
+  Py_RETURN_NONE;
+}
+
+/* Implementation of gdb.Inferior.architecture.  */
+
+static PyObject *
+infpy_architecture (PyObject *self, PyObject *args)
+{
+  inferior_object *inf = (inferior_object *) self;
+
+  INFPY_REQUIRE_VALID (inf);
+
+  return gdbarch_to_arch_object (inf->inferior->gdbarch);
+}
+
+/* Implement repr() for gdb.Inferior.  */
+
+static PyObject *
+infpy_repr (PyObject *obj)
+{
+  inferior_object *self = (inferior_object *) obj;
+  inferior *inf = self->inferior;
+
+  if (inf == nullptr)
+    return PyString_FromString ("<gdb.Inferior (invalid)>");
+
+  return PyString_FromFormat ("<gdb.Inferior num=%d, pid=%d>",
+			      inf->num, inf->pid);
 }
 
 
@@ -907,7 +922,8 @@ py_free_inferior (struct inferior *inf, void *datum)
 PyObject *
 gdbpy_selected_inferior (PyObject *self, PyObject *args)
 {
-  return (PyObject *) inferior_to_inferior_object (current_inferior ());
+  return ((PyObject *)
+	  inferior_to_inferior_object (current_inferior ()).release ());
 }
 
 int
@@ -940,8 +956,8 @@ gdbpy_initialize_inferior (void)
   if (PyType_Ready (&membuf_object_type) < 0)
     return -1;
 
-  return gdb_pymodule_addobject (gdb_module, "Membuf", (PyObject *)
-				 &membuf_object_type);
+  return gdb_pymodule_addobject (gdb_module, "Membuf",
+				 (PyObject *) &membuf_object_type);
 }
 
 static gdb_PyGetSetDef inferior_object_getset[] =
@@ -951,6 +967,7 @@ static gdb_PyGetSetDef inferior_object_getset[] =
     NULL },
   { "was_attached", infpy_get_was_attached, NULL,
     "True if the inferior was created using 'attach'.", NULL },
+  { "progspace", infpy_get_progspace, NULL, "Program space of this inferior" },
   { NULL }
 };
 
@@ -977,6 +994,9 @@ Return a long with the address of a match, or None." },
     METH_VARARGS | METH_KEYWORDS,
     "thread_from_thread_handle (handle) -> gdb.InferiorThread.\n\
 Return thread object corresponding to thread handle." },
+  { "architecture", (PyCFunction) infpy_architecture, METH_NOARGS,
+    "architecture () -> gdb.Architecture\n\
+Return architecture of this inferior." },
   { NULL }
 };
 
@@ -991,7 +1011,7 @@ PyTypeObject inferior_object_type =
   0,				  /* tp_getattr */
   0,				  /* tp_setattr */
   0,				  /* tp_compare */
-  0,				  /* tp_repr */
+  infpy_repr,			  /* tp_repr */
   0,				  /* tp_as_number */
   0,				  /* tp_as_sequence */
   0,				  /* tp_as_mapping */

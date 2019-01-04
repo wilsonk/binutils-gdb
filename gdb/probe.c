@@ -1,6 +1,6 @@
 /* Generic static probe support for GDB.
 
-   Copyright (C) 2012-2018 Free Software Foundation, Inc.
+   Copyright (C) 2012-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -60,7 +60,7 @@ public:
 
 /* Static operations associated with a generic probe.  */
 
-const any_static_probe_ops any_static_probe_ops;
+const any_static_probe_ops any_static_probe_ops {};
 
 /* A helper for parse_probes that decodes a probe specification in
    SEARCH_PSPACE.  It appends matching SALs to RESULT.  */

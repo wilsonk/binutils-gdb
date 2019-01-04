@@ -1,5 +1,5 @@
 /* tc-i386.h -- Header file for tc-i386.c
-   Copyright (C) 1989-2018 Free Software Foundation, Inc.
+   Copyright (C) 1989-2019 Free Software Foundation, Inc.
 
    This file is part of GAS, the GNU Assembler.
 
@@ -174,6 +174,7 @@ extern int tc_i386_fix_adjustable (struct fix *);
   (GENERIC_FORCE_RELOCATION_LOCAL (FIX)				\
    || (FIX)->fx_r_type == BFD_RELOC_386_PLT32			\
    || (FIX)->fx_r_type == BFD_RELOC_386_GOTPC			\
+   || (FIX)->fx_r_type == BFD_RELOC_X86_64_GOTPCREL		\
    || (FIX)->fx_r_type == BFD_RELOC_X86_64_GOTPCRELX		\
    || (FIX)->fx_r_type == BFD_RELOC_X86_64_REX_GOTPCRELX)
 
@@ -315,6 +316,11 @@ extern bfd_vma x86_64_section_word (char *, size_t);
 extern bfd_vma x86_64_section_letter (int, const char **);
 #define md_elf_section_letter(LETTER, PTR_MSG)	x86_64_section_letter (LETTER, PTR_MSG)
 #define md_elf_section_word(STR, LEN)		x86_64_section_word (STR, LEN)
+
+#if defined (OBJ_ELF) || defined (OBJ_MAYBE_ELF)
+extern void x86_cleanup (void);
+#define md_cleanup() x86_cleanup ()
+#endif
 
 #ifdef TE_PE
 

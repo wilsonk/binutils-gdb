@@ -1,6 +1,6 @@
 /* MI Command Set.
 
-   Copyright (C) 2000-2018 Free Software Foundation, Inc.
+   Copyright (C) 2000-2019 Free Software Foundation, Inc.
 
    Contributed by Cygnus Solutions (a Red Hat company).
 
@@ -587,8 +587,7 @@ mi_cmd_thread_list_ids (const char *command, char **argv, int argc)
   {
     ui_out_emit_tuple tuple_emitter (current_uiout, "thread-ids");
 
-    struct thread_info *tp;
-    ALL_NON_EXITED_THREADS (tp)
+    for (thread_info *tp : all_non_exited_threads ())
       {
 	if (tp->ptid == inferior_ptid)
 	  current_thread = tp->global_num;
@@ -768,7 +767,7 @@ list_available_thread_groups (const std::set<int> &ids, int recurse)
 
 	      for (const osdata_item &child : children)
 		{
-		  ui_out_emit_tuple tuple_emitter (uiout, NULL);
+		  ui_out_emit_tuple inner_tuple_emitter (uiout, NULL);
 		  const std::string *tid = get_osdata_column (child, "tid");
 		  const std::string *tcore = get_osdata_column (child, "core");
 
@@ -890,7 +889,7 @@ mi_cmd_data_list_register_names (const char *command, char **argv, int argc)
      debugged.  */
 
   gdbarch = get_current_arch ();
-  numregs = gdbarch_num_regs (gdbarch) + gdbarch_num_pseudo_regs (gdbarch);
+  numregs = gdbarch_num_cooked_regs (gdbarch);
 
   ui_out_emit_list list_emitter (uiout, "register-names");
 
@@ -949,7 +948,7 @@ mi_cmd_data_list_changed_registers (const char *command, char **argv, int argc)
      debugged.  */
 
   gdbarch = this_regs->arch ();
-  numregs = gdbarch_num_regs (gdbarch) + gdbarch_num_pseudo_regs (gdbarch);
+  numregs = gdbarch_num_cooked_regs (gdbarch);
 
   ui_out_emit_list list_emitter (uiout, "changed-registers");
 
@@ -1076,7 +1075,7 @@ mi_cmd_data_list_register_values (const char *command, char **argv, int argc)
 
   frame = get_selected_frame (NULL);
   gdbarch = get_frame_arch (frame);
-  numregs = gdbarch_num_regs (gdbarch) + gdbarch_num_pseudo_regs (gdbarch);
+  numregs = gdbarch_num_cooked_regs (gdbarch);
 
   ui_out_emit_list list_emitter (uiout, "register-values");
 
@@ -1164,7 +1163,7 @@ mi_cmd_data_write_register_values (const char *command, char **argv, int argc)
 
   regcache = get_current_regcache ();
   gdbarch = regcache->arch ();
-  numregs = gdbarch_num_regs (gdbarch) + gdbarch_num_pseudo_regs (gdbarch);
+  numregs = gdbarch_num_cooked_regs (gdbarch);
 
   if (argc == 0)
     error (_("-data-write-register-values: Usage: -data-write-register-"
@@ -1376,7 +1375,7 @@ mi_cmd_data_read_memory (const char *command, char **argv, int argc)
       {
 	int col;
 	int col_byte;
-	struct value_print_options opts;
+	struct value_print_options print_opts;
 
 	ui_out_emit_tuple tuple_emitter (uiout, NULL);
 	uiout->field_core_addr ("addr", gdbarch, addr + row_byte);
@@ -1384,7 +1383,7 @@ mi_cmd_data_read_memory (const char *command, char **argv, int argc)
 	   row_byte); */
 	{
 	  ui_out_emit_list list_data_emitter (uiout, "data");
-	  get_formatted_print_options (&opts, word_format);
+	  get_formatted_print_options (&print_opts, word_format);
 	  for (col = 0, col_byte = row_byte;
 	       col < nr_cols;
 	       col++, col_byte += word_size)
@@ -1396,8 +1395,8 @@ mi_cmd_data_read_memory (const char *command, char **argv, int argc)
 	      else
 		{
 		  stream.clear ();
-		  print_scalar_formatted (&mbuf[col_byte], word_type, &opts,
-					  word_asize, &stream);
+		  print_scalar_formatted (&mbuf[col_byte], word_type,
+					  &print_opts, word_asize, &stream);
 		  uiout->field_stream (NULL, stream);
 		}
 	    }
@@ -1995,7 +1994,7 @@ mi_execute_command (const char *cmd, int from_tty)
 	  top_level_interpreter ()->interp_ui_out ()->is_mi_like_p ()
 	  /* Don't try report anything if there are no threads --
 	     the program is dead.  */
-	  && thread_count () != 0
+	  && any_thread_p ()
 	  /* If the command already reports the thread change, no need to do it
 	     again.  */
 	  && !command_notifies_uscc_observer (command.get ()))
@@ -2638,7 +2637,7 @@ mi_cmd_trace_frame_collected (const char *command, char **argv, int argc)
 
     frame = get_selected_frame (NULL);
     gdbarch = get_frame_arch (frame);
-    numregs = gdbarch_num_regs (gdbarch) + gdbarch_num_pseudo_regs (gdbarch);
+    numregs = gdbarch_num_cooked_regs (gdbarch);
 
     for (regnum = 0; regnum < numregs; regnum++)
       {

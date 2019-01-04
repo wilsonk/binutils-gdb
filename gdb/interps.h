@@ -1,6 +1,6 @@
 /* Manages interpreters for GDB, the GNU debugger.
 
-   Copyright (C) 2000-2018 Free Software Foundation, Inc.
+   Copyright (C) 2000-2019 Free Software Foundation, Inc.
 
    Written by Jim Ingham <jingham@apple.com> of Apple Computer, Inc.
 
@@ -80,10 +80,12 @@ public:
   }
 
   /* This is the name in "-i=" and "set interpreter".  */
-  const char *m_name;
+private:
+  char *m_name;
 
   /* Interpreters are stored in a linked list, this is the next
      one...  */
+public:
   struct interp *next;
 
   /* Has the init method been run?  */

@@ -1,5 +1,5 @@
 /* Header file for GDB compile C-language support.
-   Copyright (C) 2014-2018 Free Software Foundation, Inc.
+   Copyright (C) 2014-2019 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -69,7 +69,7 @@ private:
 extern gdb::unique_xmalloc_ptr<unsigned char>
   generate_c_for_variable_locations
      (compile_instance *compiler,
-      string_file &stream,
+      string_file *stream,
       struct gdbarch *gdbarch,
       const struct block *block,
       CORE_ADDR pc);

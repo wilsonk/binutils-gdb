@@ -1,6 +1,6 @@
 /* Partial symbol tables.
 
-   Copyright (C) 2009-2018 Free Software Foundation, Inc.
+   Copyright (C) 2009-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -78,11 +78,8 @@ require_partial_symbols (struct objfile *objfile, int verbose)
       if (objfile->sf->sym_read_psymbols)
 	{
 	  if (verbose)
-	    {
-	      printf_unfiltered (_("Reading symbols from %s..."),
-				 objfile_name (objfile));
-	      gdb_flush (gdb_stdout);
-	    }
+	    printf_filtered (_("Reading symbols from %s...\n"),
+			     objfile_name (objfile));
 	  (*objfile->sf->sym_read_psymbols) (objfile);
 
 	  /* Partial symbols list are not expected to changed after this
@@ -90,17 +87,9 @@ require_partial_symbols (struct objfile *objfile, int verbose)
 	  objfile->global_psymbols.shrink_to_fit ();
 	  objfile->static_psymbols.shrink_to_fit ();
 
-	  if (verbose)
-	    {
-	      if (!objfile_has_symbols (objfile))
-		{
-		  wrap_here ("");
-		  printf_unfiltered (_("(no debugging symbols found)..."));
-		  wrap_here ("");
-		}
-
-	      printf_unfiltered (_("done.\n"));
-	    }
+	  if (verbose && !objfile_has_symbols (objfile))
+	    printf_filtered (_("(No debugging symbols found in %s)\n"),
+			     objfile_name (objfile));
 	}
     }
 
@@ -931,10 +920,10 @@ dump_psymtab (struct objfile *objfile, struct partial_symtab *psymtab,
   fprintf_filtered (outfile, "(object ");
   gdb_print_host_address (psymtab, outfile);
   fprintf_filtered (outfile, ")\n\n");
-  fprintf_unfiltered (outfile, "  Read from object file %s (",
-		      objfile_name (objfile));
+  fprintf_filtered (outfile, "  Read from object file %s (",
+		    objfile_name (objfile));
   gdb_print_host_address (objfile, outfile);
-  fprintf_unfiltered (outfile, ")\n");
+  fprintf_filtered (outfile, ")\n");
 
   if (psymtab->readin)
     {
@@ -1140,12 +1129,11 @@ psymtab_to_fullname (struct partial_symtab *ps)
   if (ps->fullname == NULL)
     {
       gdb::unique_xmalloc_ptr<char> fullname;
-      int fd = find_and_open_source (ps->filename, ps->dirname, &fullname);
+      scoped_fd fd = find_and_open_source (ps->filename, ps->dirname,
+					   &fullname);
       ps->fullname = fullname.release ();
 
-      if (fd >= 0)
-	close (fd);
-      else
+      if (fd.get () < 0)
 	{
 	  /* rewrite_source_path would be applied by find_and_open_source, we
 	     should report the pathname where GDB tried to find the file.  */
@@ -1241,7 +1229,9 @@ psym_map_matching_symbols (struct objfile *objfile,
 
 static bool
 recursively_search_psymtabs
-  (struct partial_symtab *ps, struct objfile *objfile, enum search_domain domain,
+  (struct partial_symtab *ps,
+   struct objfile *objfile,
+   enum search_domain domain,
    const lookup_name_info &lookup_name,
    gdb::function_view<expand_symtabs_symbol_matcher_ftype> sym_matcher)
 {
@@ -1766,13 +1756,13 @@ allocate_psymtab (const char *filename, struct objfile *objfile)
 	{
 	  xfree (last_objfile_name);
 	  last_objfile_name = xstrdup (objfile_name (objfile));
-	  fprintf_unfiltered (gdb_stdlog,
-			      "Creating one or more psymtabs for objfile %s ...\n",
-			      last_objfile_name);
+	  fprintf_filtered (gdb_stdlog,
+			    "Creating one or more psymtabs for objfile %s ...\n",
+			    last_objfile_name);
 	}
-      fprintf_unfiltered (gdb_stdlog,
-			  "Created psymtab %s for module %s.\n",
-			  host_address_to_string (psymtab), filename);
+      fprintf_filtered (gdb_stdlog,
+			"Created psymtab %s for module %s.\n",
+			host_address_to_string (psymtab), filename);
     }
 
   return psymtab;

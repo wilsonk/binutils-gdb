@@ -1,5 +1,5 @@
 \input texinfo      @c -*-texinfo-*-
-@c Copyright (C) 1988-2018 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2019 Free Software Foundation, Inc.
 @c
 @c %**start of header
 @c makeinfo ignores cmds prev to setfilename, so its arg cannot make use
@@ -545,6 +545,12 @@ Initial support for the FreeBSD/mips target and native configuration
 was developed by SRI International and the University of Cambridge
 Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
 ("CTSRD"), as part of the DARPA CRASH research programme.
+
+Initial support for the FreeBSD/riscv target and native configuration
+was developed by SRI International and the University of Cambridge
+Computer Laboratory (Department of Computer Science and Technology)
+under DARPA contract HR0011-18-C-0016 ("ECATS"), as part of the DARPA
+SSITH research programme.
 
 The original port to the OpenRISC 1000 is believed to be due to
 Alessandro Forin and Per Bothner.  More recent ports have been the work
@@ -2019,7 +2025,7 @@ the @sc{gnu} C compiler, provides macro information if you are using
 the DWARF debugging format, and specify the option @option{-g3}.
 
 @xref{Debugging Options,,Options for Debugging Your Program or GCC,
-gcc.info, Using the @sc{gnu} Compiler Collection (GCC)}, for more
+gcc, Using the @sc{gnu} Compiler Collection (GCC)}, for more
 information on @value{NGCC} options affecting debug information.
 
 You will have the best debugging experience if you use the latest
@@ -3867,6 +3873,13 @@ breakpoints are set, they are treated just like the breakpoints set with
 the @code{break} command.  You can delete them, disable them, or make
 them conditional the same way as any other breakpoint.
 
+In programs using different languages, @value{GDBN} chooses the syntax
+to print the list of all breakpoints it sets according to the
+@samp{set language} value: using @samp{set language auto}
+(see @ref{Automatically, ,Set Language Automatically}) means to use the
+language of the breakpoint's function, other values mean to use
+the manually specified language (see @ref{Manually, ,Set Language Manually}).
+
 The syntax of the regular expression is the standard one used with tools
 like @file{grep}.  Note that this is different from the syntax used by
 shells, so for instance @code{foo*} matches all functions that include
@@ -4547,6 +4560,7 @@ A failed Ada assertion.
 @cindex break on fork/exec
 A call to @code{exec}.
 
+@anchor{catch syscall}
 @item syscall
 @itemx syscall @r{[}@var{name} @r{|} @var{number} @r{|} @r{group:}@var{groupname} @r{|} @r{g:}@var{groupname}@r{]} @dots{}
 @kindex catch syscall
@@ -5894,6 +5908,14 @@ skips.
 @item skip disable @r{[}@var{range}@r{]}
 Disable the specified skip(s).  If @var{range} is not specified, disable all
 skips.
+
+@kindex set debug skip
+@item set debug skip @r{[}on|off@r{]}
+Set whether to print the debug output about skipping files and functions.
+
+@kindex show debug skip
+@item show debug skip
+Show whether the debug output about skipping files and functions is printed.
 
 @end table
 
@@ -7393,12 +7415,14 @@ address serves as the address of the frame.  Usually this address is kept
 in a register called the @dfn{frame pointer register}
 (@pxref{Registers, $fp}) while execution is going on in that frame.
 
+@cindex frame level
 @cindex frame number
-@value{GDBN} assigns numbers to all existing stack frames, starting with
-zero for the innermost frame, one for the frame that called it,
-and so on upward.  These numbers do not really exist in your program;
-they are assigned by @value{GDBN} to give you a way of designating stack
-frames in @value{GDBN} commands.
+@value{GDBN} labels each existing stack frame with a @dfn{level}, a
+number that is zero for the innermost frame, one for the frame that
+called it, and so on upward.  These level numbers give you a way of
+designating stack frames in @value{GDBN} commands.  The terms
+@dfn{frame number} and @dfn{frame level} can be used interchangeably to
+describe this number.
 
 @c The -fomit-frame-pointer below perennially causes hbox overflow
 @c underflow problems.
@@ -7631,21 +7655,75 @@ of the stack frame just selected.
 @table @code
 @kindex frame@r{, selecting}
 @kindex f @r{(@code{frame})}
-@item frame @var{n}
-@itemx f @var{n}
-Select frame number @var{n}.  Recall that frame zero is the innermost
-(currently executing) frame, frame one is the frame that called the
-innermost one, and so on.  The highest-numbered frame is the one for
-@code{main}.
+@item frame @r{[} @var{frame-selection-spec} @r{]}
+@item f @r{[} @var{frame-selection-spec} @r{]}
+The @command{frame} command allows different stack frames to be
+selected.  The @var{frame-selection-spec} can be any of the following:
 
-@item frame @var{stack-addr} [ @var{pc-addr} ]
-@itemx f @var{stack-addr} [ @var{pc-addr} ]
-Select the frame at address @var{stack-addr}.  This is useful mainly if the
-chaining of stack frames has been damaged by a bug, making it
-impossible for @value{GDBN} to assign numbers properly to all frames.  In
-addition, this can be useful when your program has multiple stacks and
-switches between them.  The optional @var{pc-addr} can also be given to
-specify the value of PC for the stack frame.
+@table @code
+@kindex frame level
+@item @var{num}
+@item level @var{num}
+Select frame level @var{num}.  Recall that frame zero is the innermost
+(currently executing) frame, frame one is the frame that called the
+innermost one, and so on.  The highest level frame is usually the one
+for @code{main}.
+
+As this is the most common method of navigating the frame stack, the
+string @command{level} can be omitted.  For example, the following two
+commands are equivalent:
+
+@smallexample
+(@value{GDBP}) frame 3
+(@value{GDBP}) frame level 3
+@end smallexample
+
+@kindex frame address
+@item address @var{stack-address}
+Select the frame with stack address @var{stack-address}.  The
+@var{stack-address} for a frame can be seen in the output of
+@command{info frame}, for example:
+
+@smallexample
+(gdb) info frame
+Stack level 1, frame at 0x7fffffffda30:
+ rip = 0x40066d in b (amd64-entry-value.cc:59); saved rip 0x4004c5
+ tail call frame, caller of frame at 0x7fffffffda30
+ source language c++.
+ Arglist at unknown address.
+ Locals at unknown address, Previous frame's sp is 0x7fffffffda30
+@end smallexample
+
+The @var{stack-address} for this frame is @code{0x7fffffffda30} as
+indicated by the line:
+
+@smallexample
+Stack level 1, frame at 0x7fffffffda30:
+@end smallexample
+
+@kindex frame function
+@item function @var{function-name}
+Select the stack frame for function @var{function-name}.  If there are
+multiple stack frames for function @var{function-name} then the inner
+most stack frame is selected.
+
+@kindex frame view
+@item view @var{stack-address} @r{[} @var{pc-addr} @r{]}
+View a frame that is not part of @value{GDBN}'s backtrace.  The frame
+viewed has stack address @var{stack-addr}, and optionally, a program
+counter address of @var{pc-addr}.
+
+This is useful mainly if the chaining of stack frames has been
+damaged by a bug, making it impossible for @value{GDBN} to assign
+numbers properly to all frames.  In addition, this can be useful
+when your program has multiple stacks and switches between them.
+
+When viewing a frame outside the current backtrace using
+@command{frame view} then you can always return to the original
+stack using one of the previous stack frame selection instructions,
+for example @command{frame level 0}.
+
+@end table
 
 @kindex up
 @item up @var{n}
@@ -7688,11 +7766,13 @@ for details.
 
 @table @code
 @kindex select-frame
-@item select-frame
+@item select-frame @r{[} @var{frame-selection-spec} @r{]}
 The @code{select-frame} command is a variant of @code{frame} that does
 not display the new frame after selecting it.  This command is
 intended primarily for use in @value{GDBN} command scripts, where the
-output might be unnecessary and distracting.
+output might be unnecessary and distracting.  The
+@var{frame-selection-spec} is as for the @command{frame} command
+described in @ref{Selection, ,Selecting a Frame}.
 
 @kindex down-silently
 @kindex up-silently
@@ -7750,23 +7830,82 @@ which registers were saved in the frame
 something has gone wrong that has made the stack format fail to fit
 the usual conventions.
 
-@item info frame @var{addr}
-@itemx info f @var{addr}
-Print a verbose description of the frame at address @var{addr}, without
-selecting that frame.  The selected frame remains unchanged by this
-command.  This requires the same kind of address (more than one for some
-architectures) that you specify in the @code{frame} command.
-@xref{Selection, ,Selecting a Frame}.
+@item info frame @r{[} @var{frame-selection-spec} @r{]}
+@itemx info f @r{[} @var{frame-selection-spec} @r{]}
+Print a verbose description of the frame selected by
+@var{frame-selection-spec}.  The @var{frame-selection-spec} is the
+same as for the @command{frame} command (@pxref{Selection, ,Selecting
+a Frame}).  The selected frame remains unchanged by this command.
 
 @kindex info args
-@item info args
+@item info args [-q]
 Print the arguments of the selected frame, each on a separate line.
 
-@item info locals
+The optional flag @samp{-q}, which stands for @samp{quiet}, disables
+printing header information and messages explaining why no argument
+have been printed.
+
+@item info args [-q] [-t @var{type_regexp}] [@var{regexp}]
+Like @kbd{info args}, but only print the arguments selected
+with the provided regexp(s).
+
+If @var{regexp} is provided, print only the arguments whose names
+match the regular expression @var{regexp}.
+
+If @var{type_regexp} is provided, print only the arguments whose
+types, as printed by the @code{whatis} command, match
+the regular expression @var{type_regexp}.
+If @var{type_regexp} contains space(s), it should be enclosed in
+quote characters.  If needed, use backslash to escape the meaning
+of special characters or quotes.
+
+If both @var{regexp} and @var{type_regexp} are provided, an argument
+is printed only if its name matches @var{regexp} and its type matches
+@var{type_regexp}.
+
+@item info locals [-q]
 @kindex info locals
 Print the local variables of the selected frame, each on a separate
 line.  These are all variables (declared either static or automatic)
 accessible at the point of execution of the selected frame.
+
+The optional flag @samp{-q}, which stands for @samp{quiet}, disables
+printing header information and messages explaining why no local variables
+have been printed.
+
+@item info locals [-q] [-t @var{type_regexp}] [@var{regexp}]
+Like @kbd{info locals}, but only print the local variables selected
+with the provided regexp(s).
+
+If @var{regexp} is provided, print only the local variables whose names
+match the regular expression @var{regexp}.
+
+If @var{type_regexp} is provided, print only the local variables whose
+types, as printed by the @code{whatis} command, match
+the regular expression @var{type_regexp}.
+If @var{type_regexp} contains space(s), it should be enclosed in
+quote characters.  If needed, use backslash to escape the meaning
+of special characters or quotes.
+
+If both @var{regexp} and @var{type_regexp} are provided, a local variable
+is printed only if its name matches @var{regexp} and its type matches
+@var{type_regexp}.
+
+The command @kbd{info locals -q -t @var{type_regexp}} can usefully be
+combined with the commands @kbd{frame apply} and @kbd{thread apply}.
+For example, your program might use Resource Acquisition Is
+Initialization types (RAII) such as @code{lock_something_t}: each
+local variable of type @code{lock_something_t} automatically places a
+lock that is destroyed when the variable goes out of scope.  You can
+then list all acquired locks in your program by doing
+@smallexample
+thread apply all -s frame apply all -s info locals -q -t lock_something_t
+@end smallexample
+@noindent
+or the equivalent shorter form
+@smallexample
+tfaas i lo -q -t lock_something_t
+@end smallexample
 
 @end table
 
@@ -8938,7 +9077,7 @@ This command controls the passing of target specific information to
 the disassembler.  For a list of valid options, please refer to the
 @code{-M}/@code{--disassembler-options} section of the @samp{objdump}
 manual and/or the output of @kbd{objdump --help}
-(@pxref{objdump,,objdump,binutils.info,The GNU Binary Utilities}).
+(@pxref{objdump,,objdump,binutils,The GNU Binary Utilities}).
 The default value is the empty string.
 
 If it is necessary to specify more than one disassembler option, then
@@ -10798,7 +10937,7 @@ library2.so:
   bar
     bar1
     bar2
-(gdb) disable pretty-printer library2 bar:bar1
+(gdb) disable pretty-printer library2 bar;bar1
 1 printer disabled
 1 of 3 printers enabled
 (gdb) info pretty-printer library2
@@ -17030,7 +17169,8 @@ the following example:
 (@value{GDBP}) info task 2
 Ada Task: 0x807c468
 Name: task_1
-Thread: 0x807f378
+Thread: 0
+LWP: 0x1fac
 Parent: 1 (main_task)
 Base Priority: 15
 State: Runnable
@@ -17771,6 +17911,13 @@ types in your program whose names include the string @code{value}, but
 @samp{i type ^value$} gives information only on types whose complete
 name is @code{value}.
 
+In programs using different languages, @value{GDBN} chooses the syntax
+to print the type description according to the
+@samp{set language} value: using @samp{set language auto}
+(see @ref{Automatically, ,Set Language Automatically}) means to use the
+language of the type, other values mean to use
+the manually specified language (see @ref{Manually, ,Set Language Manually}).
+
 This command differs from @code{ptype} in two ways: first, like
 @code{whatis}, it does not print a detailed description; second, it
 lists all source files and line numbers where a type is defined.
@@ -17849,32 +17996,87 @@ debugging information, organized into two lists: files whose symbols
 have already been read, and files whose symbols will be read when needed.
 
 @kindex info functions
-@item info functions
+@item info functions [-q]
 Print the names and data types of all defined functions.
 Similarly to @samp{info types}, this command groups its output by source
 files and annotates each function definition with its source line
 number.
 
-@item info functions @var{regexp}
-Like @samp{info functions}, but only print the names and data types of
-functions whose names contain a match for regular expression
-@var{regexp}.  Thus, @samp{info fun step} finds all functions whose
+In programs using different languages, @value{GDBN} chooses the syntax
+to print the function name and type according to the
+@samp{set language} value: using @samp{set language auto}
+(see @ref{Automatically, ,Set Language Automatically}) means to use the
+language of the function, other values mean to use
+the manually specified language (see @ref{Manually, ,Set Language Manually}).
+
+The optional flag @samp{-q}, which stands for @samp{quiet}, disables
+printing header information and messages explaining why no functions
+have been printed.
+
+@item info functions [-q] [-t @var{type_regexp}] [@var{regexp}]
+Like @samp{info functions}, but only print the names and data types
+of the functions selected with the provided regexp(s).
+
+If @var{regexp} is provided, print only the functions whose names
+match the regular expression @var{regexp}.
+Thus, @samp{info fun step} finds all functions whose
 names include @code{step}; @samp{info fun ^step} finds those whose names
 start with @code{step}.  If a function name contains characters that
 conflict with the regular expression language (e.g.@:
 @samp{operator*()}), they may be quoted with a backslash.
 
+If @var{type_regexp} is provided, print only the functions whose
+types, as printed by the @code{whatis} command, match
+the regular expression @var{type_regexp}.
+If @var{type_regexp} contains space(s), it should be enclosed in
+quote characters.  If needed, use backslash to escape the meaning
+of special characters or quotes.
+Thus, @samp{info fun -t '^int ('} finds the functions that return
+an integer; @samp{info fun -t '(.*int.*'} finds the functions that
+have an argument type containing int; @samp{info fun -t '^int (' ^step}
+finds the functions whose names start with @code{step} and that return
+int.
+
+If both @var{regexp} and @var{type_regexp} are provided, a function
+is printed only if its name matches @var{regexp} and its type matches
+@var{type_regexp}.
+
+
 @kindex info variables
-@item info variables
+@item info variables [-q]
 Print the names and data types of all variables that are defined
 outside of functions (i.e.@: excluding local variables).
 The printed variables are grouped by source files and annotated with
 their respective source line numbers.
 
-@item info variables @var{regexp}
-Like @kbd{info variables}, but only print the names and data types of
-non-local variables whose names contain a match for regular expression
-@var{regexp}.
+In programs using different languages, @value{GDBN} chooses the syntax
+to print the variable name and type according to the
+@samp{set language} value: using @samp{set language auto}
+(see @ref{Automatically, ,Set Language Automatically}) means to use the
+language of the variable, other values mean to use
+the manually specified language (see @ref{Manually, ,Set Language Manually}).
+
+The optional flag @samp{-q}, which stands for @samp{quiet}, disables
+printing header information and messages explaining why no variables
+have been printed.
+
+@item info variables [-q] [-t @var{type_regexp}] [@var{regexp}]
+Like @kbd{info variables}, but only print the variables selected
+with the provided regexp(s).
+
+If @var{regexp} is provided, print only the variables whose names
+match the regular expression @var{regexp}.
+
+If @var{type_regexp} is provided, print only the variables whose
+types, as printed by the @code{whatis} command, match
+the regular expression @var{type_regexp}.
+If @var{type_regexp} contains space(s), it should be enclosed in
+quote characters.  If needed, use backslash to escape the meaning
+of special characters or quotes.
+
+If both @var{regexp} and @var{type_regexp} are provided, an argument
+is printed only if its name matches @var{regexp} and its type matches
+@var{type_regexp}.
 
 @kindex info classes
 @cindex Objective-C, classes and selectors
@@ -18689,6 +18891,16 @@ injecting the code.  The default is off.
 @item show debug compile
 Displays the current state of displaying @value{GDBN} process of
 compiling and injecting the code.
+
+@anchor{set debug compile-cplus-types}
+@item set debug compile-cplus-types
+@cindex compile C@t{++} type conversion
+Turns on or off the display of C@t{++} type conversion debugging information.
+The default is off.
+
+@item show debug compile-cplus-types
+Displays the current state of displaying debugging information for
+C@t{++} type conversion.
 @end table
 
 @subsection Compilation options for the @code{compile} command
@@ -19689,7 +19901,7 @@ also present in the corresponding debug info file.  (This is supported
 only on some operating systems, when using the ELF or PE file formats
 for binary files and the @sc{gnu} Binutils.)  For more details about
 this feature, see the description of the @option{--build-id}
-command-line option in @ref{Options, , Command Line Options, ld.info,
+command-line option in @ref{Options, , Command Line Options, ld,
 The GNU Linker}.  The debug info file's name is not specified
 explicitly by the build ID, but can be computed from the build ID, see
 below.
@@ -20110,10 +20322,14 @@ Enable or disable the use of the symbol index cache.
 
 @item set index-cache directory @var{directory}
 @itemx show index-cache directory
-Set/show the directory where index files will be saved.  By default, the index
-is cached in the @file{gdb} subdirectory of the directory pointed to by the
-@env{XDG_CACHE_HOME} environment variable, if it is defined, else in the
-@file{.cache/gdb} subdirectory of your home directory.
+Set/show the directory where index files will be saved.
+
+The default value for this directory depends on the host platform.  On
+most systems, the index is cached in the @file{gdb} subdirectory of
+the directory pointed to by the @env{XDG_CACHE_HOME} environment
+variable, if it is defined, else in the @file{.cache/gdb} subdirectory
+of your home directory.  However, on some systems, the default may
+differ according to local convention.
 
 There is no limit on the disk space used by index cache.  It is perfectly safe
 to delete the content of that directory to free up disk space.
@@ -20703,7 +20919,8 @@ programs.
 
 @subsection Remote Connection Commands
 @cindex remote connection commands
-@value{GDBN} can communicate with the target over a serial line, or
+@value{GDBN} can communicate with the target over a serial line, a
+local Unix domain socket, or
 over an @acronym{IP} network using @acronym{TCP} or @acronym{UDP}.  In
 each case, @value{GDBN} uses the same protocol for debugging your
 program; only the medium carrying the debugging packets varies.  The
@@ -20727,6 +20944,24 @@ If you're using a serial line, you may want to give @value{GDBN} the
 @samp{--baud} option, or use the @code{set serial baud} command
 (@pxref{Remote Configuration, set serial baud}) before the
 @code{target} command.
+
+@item target remote @var{local-socket}
+@itemx target extended-remote @var{local-socket}
+@cindex local socket, @code{target remote}
+@cindex Unix domain socket
+Use @var{local-socket} to communicate with the target.  For example,
+to use a local Unix domain socket bound to the file system entry @file{/tmp/gdb-socket0}:
+
+@smallexample
+target remote /tmp/gdb-socket0
+@end smallexample
+
+Note that this command has the same form as the command to connect
+to a serial line.  @value{GDBN} will automatically determine which
+kind of file you have specified and will make the appropriate kind
+of connection.
+This feature is not available if the host system does not support
+Unix domain sockets.
 
 @item target remote @code{@var{host}:@var{port}}
 @itemx target remote @code{@var{[host]}:@var{port}}
@@ -22123,6 +22358,7 @@ configurations.
 * Cygwin Native::		Features specific to the Cygwin port
 * Hurd Native::                 Features specific to @sc{gnu} Hurd
 * Darwin::			Features specific to Darwin
+* FreeBSD::			Features specific to FreeBSD
 @end menu
 
 @node BSD libkvm Interface
@@ -22197,7 +22433,7 @@ systems.
 @cindex process ID
 @item info proc
 @itemx info proc @var{process-id}
-Summarize available information about any running process.  If a
+Summarize available information about a process.  If a
 process ID is specified by @var{process-id}, display information about
 that process; otherwise display information about the program being
 debugged.  The summary includes the debugged process ID, the command
@@ -22226,9 +22462,39 @@ supported on @sc{gnu}/Linux and FreeBSD.
 Show the name of executable of the process.  This command is supported
 on @sc{gnu}/Linux and FreeBSD.
 
+@item info proc files
+@cindex info proc files
+Show the file descriptors open by the process.  For each open file
+descriptor, @value{GDBN} shows its number, type (file, directory,
+character device, socket), file pointer offset, and the name of the
+resource open on the descriptor.  The resource name can be a file name
+(for files, directories, and devices) or a protocol followed by socket
+address (for network connections).  This command is supported on
+FreeBSD.
+
+This example shows the open file descriptors for a process using a
+tty for standard input and output as well as two network sockets:
+
+@smallexample
+(gdb) info proc files 22136
+process 22136
+Open files:
+
+      FD   Type     Offset   Flags   Name
+    text   file          - r-------- /usr/bin/ssh
+    ctty    chr          - rw------- /dev/pts/20
+     cwd    dir          - r-------- /usr/home/john
+    root    dir          - r-------- /
+       0    chr  0x32933a4 rw------- /dev/pts/20
+       1    chr  0x32933a4 rw------- /dev/pts/20
+       2    chr  0x32933a4 rw------- /dev/pts/20
+       3 socket        0x0 rw----n-- tcp4 10.0.1.2:53014 -> 10.0.1.10:22
+       4 socket        0x0 rw------- unix stream:/tmp/ssh-FIt89oAzOn5f/agent.2456
+@end smallexample
+
 @item info proc mappings
 @cindex memory address space mappings
-Report the memory address space ranges accessible in the program.  On
+Report the memory address space ranges accessible in a process.  On
 Solaris and FreeBSD systems, each memory range includes information on
 whether the process has read, write, or execute access rights to each
 range.  On @sc{gnu}/Linux and FreeBSD systems, each memory range
@@ -22978,6 +23244,27 @@ better understand the cause of a fault.  The default is off.
 Show the current state of exceptions trapping.
 @end table
 
+@node FreeBSD
+@subsection FreeBSD
+@cindex FreeBSD
+
+When the ABI of a system call is changed in the FreeBSD kernel, this
+is implemented by leaving a compatibility system call using the old
+ABI at the existing number and allocating a new system call number for
+the version using the new ABI.  As a convenience, when a system call
+is caught by name (@pxref{catch syscall}), compatibility system calls
+are also caught.
+
+For example, FreeBSD 12 introduced a new variant of the @code{kevent}
+system call and catching the @code{kevent} system call by name catches
+both variants:
+
+@smallexample
+(@value{GDBP}) catch syscall kevent
+Catchpoint 1 (syscalls 'freebsd11_kevent' [363] 'kevent' [560])
+(@value{GDBP})
+@end smallexample
+
 
 @node Embedded OS
 @section Embedded Operating Systems
@@ -23431,6 +23718,7 @@ all uses of @value{GDBN} with the architecture, both native and cross.
 * PowerPC::
 * Nios II::
 * Sparc64::
+* S12Z::
 @end menu
 
 @node AArch64
@@ -23450,6 +23738,22 @@ messages are to be displayed.
 Show whether AArch64 debugging messages are displayed.
 
 @end table
+
+@subsubsection AArch64 SVE.
+@cindex AArch64 SVE.
+
+When @value{GDBN} is debugging the AArch64 architecture, if the Scalable Vector
+Extension (SVE) is present, then @value{GDBN} will provide the vector registers
+@code{$z0} through @code{$z31}, vector predicate registers @code{$p0} through
+@code{$p15}, and the @code{$ffr} register.  In addition, the pseudo register
+@code{$vg} will be provided.  This is the vector granule for the current thread
+and represents the number of 64-bit chunks in an SVE @code{z} register.
+
+If the vector length changes, then the @code{$vg} register will be updated,
+but the lengths of the @code{z} and @code{p} registers will not change.  This
+is a known limitation of @value{GDBN} and does not affect the execution of the
+target process.
+
 
 @node i386
 @subsection x86 Architecture-specific Issues
@@ -23887,6 +24191,21 @@ variable "shmaddr":
 
 @end table
 
+@node S12Z
+@subsection S12Z
+@cindex S12Z support
+
+When @value{GDBN} is debugging the S12Z architecture,
+it provides the following special command:
+
+@table @code
+@item maint info bdccsr
+@kindex maint info bdccsr@r{, S12Z}
+This command displays the current value of the microprocessor's
+BDCCSR register.
+@end table
+
+
 @node Controlling GDB
 @chapter Controlling @value{GDBN}
 
@@ -23900,6 +24219,7 @@ described here.
 * Editing::                     Command editing
 * Command History::             Command history
 * Screen Size::                 Screen size
+* Output Styling::              Output styling
 * Numbers::                     Numbers
 * ABI::                         Configuring the current ABI
 * Auto-loading::                Automatically loading associated files
@@ -24205,6 +24525,70 @@ Options, -batch}) also automatically disables pagination.
 @item show pagination
 @kindex show pagination
 Show the current pagination mode.
+@end table
+
+@node Output Styling
+@section Output Styling
+@cindex styling
+@cindex colors
+
+@kindex set style
+@kindex show style
+@value{GDBN} can style its output on a capable terminal.  This is
+enabled by default on most systems.  Various style settings are
+available; and styles can also be disabled entirely.
+
+@table @code
+@item set style enabled @samp{on|off}
+Enable or disable all styling.  The default is host-dependent, with
+most hosts defaulting to @samp{on}.
+
+@item show style enabled
+Show the current state of styling.
+@end table
+
+Subcommands of @code{set style} control specific forms of styling.
+These subcommands all follow the same pattern: each style-able object
+can be styled with a foreground color, a background color, and an
+intensity.
+
+For example, the style of file names can be controlled using the
+@code{set style filename} group of commands:
+
+@table @code
+@item set style filename background @var{color}
+Set the background to @var{color}.  Valid colors are @samp{none}
+(meaning the terminal's default color), @samp{black}, @samp{red},
+@samp{green}, @samp{yellow}, @samp{vlue}, @samp{magenta}, @samp{cyan},
+and@samp{white}.
+
+@item set style filename foreground @var{color}
+Set the foreground to @var{color}.  Valid colors are @samp{none}
+(meaning the terminal's default color), @samp{black}, @samp{red},
+@samp{green}, @samp{yellow}, @samp{vlue}, @samp{magenta}, @samp{cyan},
+and@samp{white}.
+
+@item set style filename intensity @var{value}
+Set the intensity to @var{value}.  Valid intensities are @samp{normal}
+(the default), @samp{bold}, and @samp{dim}.
+@end table
+
+The style-able objects are:
+@table @code
+@item filename
+Control the styling of file names.
+
+@item function
+Control the styling of function names.  These are managed with the
+@code{set style function} family of commands.
+
+@item variable
+Control the styling of variable names.  These are managed with the
+@code{set style variable} family of commands.
+
+@item address
+Control the styling of addresses.  These are managed with the
+@code{set style address} family of commands.
 @end table
 
 @node Numbers
@@ -26629,12 +27013,6 @@ lines.  Positive counts increase the height, while negative counts
 decrease it.  The @var{name} parameter can be one of @code{src} (the
 source window), @code{cmd} (the command window), @code{asm} (the
 disassembly window), or @code{regs} (the register display window).
-
-@item tabset @var{nchars}
-@kindex tabset
-Set the width of tab stops to be @var{nchars} characters.  This
-setting affects the display of TAB characters in the source and
-assembly windows.
 @end table
 
 @node TUI Configuration
@@ -26688,6 +27066,13 @@ Use extra bright or bold mode.
 @item bold-standout
 Use extra bright or bold and standout mode.
 @end table
+
+@item set tui tab-width @var{nchars}
+@kindex set tui tab-width
+@kindex tabset
+Set the width of tab stops to be @var{nchars} characters.  This
+setting affects the display of TAB characters in the source and
+assembly windows.
 @end table
 
 @node Emacs
@@ -28001,7 +28386,8 @@ reason that execution stopped.
 <- *stopped,reason="breakpoint-hit",disp="keep",bkptno="1",thread-id="0",
    frame=@{addr="0x08048564",func="main",
    args=[@{name="argc",value="1"@},@{name="argv",value="0xbfc4d4d4"@}],
-   file="myprog.c",fullname="/home/nickrob/myprog.c",line="68"@}
+   file="myprog.c",fullname="/home/nickrob/myprog.c",line="68",
+   arch="i386:x86_64"@}
 <- (gdb)
 -> -exec-continue
 <- ^running
@@ -28664,7 +29050,7 @@ Setting a watchpoint on a variable in the @code{main} function:
 *stopped,reason="watchpoint-trigger",wpt=@{number="2",exp="x"@},
 value=@{old="-268439212",new="55"@},
 frame=@{func="main",args=[],file="recursive2.c",
-fullname="/home/foo/bar/recursive2.c",line="5"@}
+fullname="/home/foo/bar/recursive2.c",line="5",arch="i386:x86_64"@}
 (gdb)
 @end smallexample
 
@@ -28684,7 +29070,8 @@ for the watchpoint going out of scope.
 wpt=@{number="5",exp="C"@},value=@{old="-276895068",new="3"@},
 frame=@{func="callee4",args=[],
 file="../../../devo/gdb/testsuite/gdb.mi/basics.c",
-fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="13"@}
+fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="13",
+arch="i386:x86_64"@}
 (gdb)
 -exec-continue
 ^running
@@ -28693,7 +29080,8 @@ fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="13"@}
 frame=@{func="callee3",args=[@{name="strarg",
 value="0x11940 \"A string argument.\""@}],
 file="../../../devo/gdb/testsuite/gdb.mi/basics.c",
-fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="18"@}
+fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="18",
+arch="i386:x86_64"@}
 (gdb)
 @end smallexample
 
@@ -28729,7 +29117,8 @@ enabled="y",addr="",what="C",thread-groups=["i1"],times="0"@}]@}
 value=@{old="-276895068",new="3"@},
 frame=@{func="callee4",args=[],
 file="../../../devo/gdb/testsuite/gdb.mi/basics.c",
-fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="13"@}
+fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="13",
+arch="i386:x86_64"@}
 (gdb)
 -break-list
 ^done,BreakpointTable=@{nr_rows="2",nr_cols="6",
@@ -28753,7 +29142,8 @@ enabled="y",addr="",what="C",thread-groups=["i1"],times="-5"@}]@}
 frame=@{func="callee3",args=[@{name="strarg",
 value="0x11940 \"A string argument.\""@}],
 file="../../../devo/gdb/testsuite/gdb.mi/basics.c",
-fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="18"@}
+fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="18",
+arch="i386:x86_64"@}
 (gdb)
 -break-list
 ^done,BreakpointTable=@{nr_rows="1",nr_cols="6",
@@ -29232,7 +29622,7 @@ the command.
 @{id="1",target-id="Thread 0xb7e156b0 (LWP 21254)",
    frame=@{level="0",addr="0x0804891f",func="foo",
            args=[@{name="i",value="10"@}],
-           file="/tmp/a.c",fullname="/tmp/a.c",line="158"@},
+           file="/tmp/a.c",fullname="/tmp/a.c",line="158",arch="i386:x86_64"@},
            state="running"@}],
 current-thread-id="1"
 (gdb)
@@ -29308,7 +29698,7 @@ number-of-threads="3"
 ^done,new-thread-id="3",
 frame=@{level="0",func="vprintf",
 args=[@{name="format",value="0x8048e9c \"%*s%c %d %c\\n\""@},
-@{name="arg",value="0x2"@}],file="vprintf.c",line="31"@}
+@{name="arg",value="0x2"@}],file="vprintf.c",line="31",arch="i386:x86_64"@}
 (gdb)
 @end smallexample
 
@@ -29442,7 +29832,7 @@ The corresponding @value{GDBN} corresponding is @samp{continue}.
 @@Hello world
 *stopped,reason="breakpoint-hit",disp="keep",bkptno="2",frame=@{
 func="foo",args=[],file="hello.c",fullname="/home/foo/bar/hello.c",
-line="13"@}
+line="13",arch="i386:x86_64"@}
 (gdb)
 @end smallexample
 
@@ -29476,7 +29866,7 @@ Function returning @code{void}.
 (gdb)
 @@hello from foo
 *stopped,reason="function-finished",frame=@{func="main",args=[],
-file="hello.c",fullname="/home/foo/bar/hello.c",line="7"@}
+file="hello.c",fullname="/home/foo/bar/hello.c",line="7",arch="i386:x86_64"@}
 (gdb)
 @end smallexample
 
@@ -29490,7 +29880,8 @@ value itself.
 (gdb)
 *stopped,reason="function-finished",frame=@{addr="0x000107b0",func="foo",
 args=[@{name="a",value="1"],@{name="b",value="9"@}@},
-file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14"@},
+file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14",
+arch="i386:x86_64"@},
 gdb-result-var="$1",return-value="0"
 (gdb)
 @end smallexample
@@ -29538,7 +29929,7 @@ The corresponding @value{GDBN} command is @samp{interrupt}.
 (gdb)
 111*stopped,signal-name="SIGINT",signal-meaning="Interrupt",
 frame=@{addr="0x00010140",func="foo",args=[],file="try.c",
-fullname="/home/foo/bar/try.c",line="13"@}
+fullname="/home/foo/bar/try.c",line="13",arch="i386:x86_64"@}
 (gdb)
 
 (gdb)
@@ -29675,7 +30066,8 @@ file="../../../devo/gdb/testsuite/gdb.mi/basics.c",line="8"@}
 000*stopped,reason="breakpoint-hit",disp="keep",bkptno="1",
 frame=@{func="callee4",args=[],
 file="../../../devo/gdb/testsuite/gdb.mi/basics.c",
-fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="8"@}
+fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="8",
+arch="i386:x86_64"@}
 (gdb)
 205-break-delete
 205^done
@@ -29685,7 +30077,8 @@ fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="8"@}
 args=[@{name="strarg",
 value="0x11940 \"A string argument.\""@}],
 file="../../../devo/gdb/testsuite/gdb.mi/basics.c",
-fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="18"@}
+fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="18",
+arch="i386:x86_64"@}
 (gdb)
 @end smallexample
 
@@ -29731,7 +30124,7 @@ The corresponding @value{GDBN} command is @samp{run}.
 (gdb)
 *stopped,reason="breakpoint-hit",disp="keep",bkptno="1",
 frame=@{func="main",args=[],file="recursive2.c",
-fullname="/home/foo/bar/recursive2.c",line="4"@}
+fullname="/home/foo/bar/recursive2.c",line="4",arch="i386:x86_64"@}
 (gdb)
 @end smallexample
 
@@ -29805,7 +30198,7 @@ Stepping into a function:
 *stopped,reason="end-stepping-range",
 frame=@{func="foo",args=[@{name="a",value="10"@},
 @{name="b",value="0"@}],file="recursive2.c",
-fullname="/home/foo/bar/recursive2.c",line="11"@}
+fullname="/home/foo/bar/recursive2.c",line="11",arch="i386:x86_64"@}
 (gdb)
 @end smallexample
 
@@ -29851,7 +30244,7 @@ The corresponding @value{GDBN} command is @samp{stepi}.
 (gdb)
 *stopped,reason="end-stepping-range",
 frame=@{func="foo",args=[],file="try.c",
-fullname="/home/foo/bar/try.c",line="10"@}
+fullname="/home/foo/bar/try.c",line="10",arch="i386:x86_64"@}
 (gdb)
 -exec-step-instruction
 ^running
@@ -29859,7 +30252,7 @@ fullname="/home/foo/bar/try.c",line="10"@}
 (gdb)
 *stopped,reason="end-stepping-range",
 frame=@{addr="0x000100f4",func="foo",args=[],file="try.c",
-fullname="/home/foo/bar/try.c",line="10"@}
+fullname="/home/foo/bar/try.c",line="10",arch="i386:x86_64"@}
 (gdb)
 @end smallexample
 
@@ -29891,7 +30284,8 @@ The corresponding @value{GDBN} command is @samp{until}.
 (gdb)
 x = 55
 *stopped,reason="location-reached",frame=@{func="main",args=[],
-file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="6"@}
+file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="6",
+arch="i386:x86_64"@}
 (gdb)
 @end smallexample
 
@@ -29944,7 +30338,8 @@ The corresponding @value{GDBN} command is @samp{info frame} or @samp{frame}
 -stack-info-frame
 ^done,frame=@{level="1",addr="0x0001076c",func="callee3",
 file="../../../devo/gdb/testsuite/gdb.mi/basics.c",
-fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="17"@}
+fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="17",
+arch="i386:x86_64"@}
 (gdb)
 @end smallexample
 
@@ -30036,19 +30431,24 @@ functionality of @samp{-stack-list-arguments}.
 stack=[
 frame=@{level="0",addr="0x00010734",func="callee4",
 file="../../../devo/gdb/testsuite/gdb.mi/basics.c",
-fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="8"@},
+fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="8",
+arch="i386:x86_64"@},
 frame=@{level="1",addr="0x0001076c",func="callee3",
 file="../../../devo/gdb/testsuite/gdb.mi/basics.c",
-fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="17"@},
+fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="17",
+arch="i386:x86_64"@},
 frame=@{level="2",addr="0x0001078c",func="callee2",
 file="../../../devo/gdb/testsuite/gdb.mi/basics.c",
-fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="22"@},
+fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="22",
+arch="i386:x86_64"@},
 frame=@{level="3",addr="0x000107b4",func="callee1",
 file="../../../devo/gdb/testsuite/gdb.mi/basics.c",
-fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="27"@},
+fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="27",
+arch="i386:x86_64"@},
 frame=@{level="4",addr="0x000107e0",func="main",
 file="../../../devo/gdb/testsuite/gdb.mi/basics.c",
-fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="32"@}]
+fullname="/home/foo/bar/devo/gdb/testsuite/gdb.mi/basics.c",line="32",
+arch="i386:x86_64"@}]
 (gdb)
 -stack-list-arguments 0
 ^done,
@@ -30116,6 +30516,8 @@ Line number corresponding to the @code{$pc}.
 @item @var{from}
 The shared library where this function is defined.  This is only given
 if the frame's function is not known.
+@item @var{arch}
+Frame's architecture.
 @end table
 
 If invoked without arguments, this command prints a backtrace for the
@@ -30141,29 +30543,41 @@ Full stack backtrace:
 -stack-list-frames
 ^done,stack=
 [frame=@{level="0",addr="0x0001076c",func="foo",
-  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="11"@},
+  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="11",
+  arch="i386:x86_64"@},
 frame=@{level="1",addr="0x000107a4",func="foo",
-  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14"@},
+  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14",
+  arch="i386:x86_64"@},
 frame=@{level="2",addr="0x000107a4",func="foo",
-  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14"@},
+  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14",
+  arch="i386:x86_64"@},
 frame=@{level="3",addr="0x000107a4",func="foo",
-  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14"@},
+  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14",
+  arch="i386:x86_64"@},
 frame=@{level="4",addr="0x000107a4",func="foo",
-  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14"@},
+  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14",
+  arch="i386:x86_64"@},
 frame=@{level="5",addr="0x000107a4",func="foo",
-  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14"@},
+  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14",
+  arch="i386:x86_64"@},
 frame=@{level="6",addr="0x000107a4",func="foo",
-  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14"@},
+  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14",
+  arch="i386:x86_64"@},
 frame=@{level="7",addr="0x000107a4",func="foo",
-  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14"@},
+  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14",
+  arch="i386:x86_64"@},
 frame=@{level="8",addr="0x000107a4",func="foo",
-  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14"@},
+  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14",
+  arch="i386:x86_64"@},
 frame=@{level="9",addr="0x000107a4",func="foo",
-  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14"@},
+  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14",
+  arch="i386:x86_64"@},
 frame=@{level="10",addr="0x000107a4",func="foo",
-  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14"@},
+  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14",
+  arch="i386:x86_64"@},
 frame=@{level="11",addr="0x00010738",func="main",
-  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="4"@}]
+  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="4",
+  arch="i386:x86_64"@}]
 (gdb)
 @end smallexample
 
@@ -30174,11 +30588,14 @@ Show frames between @var{low_frame} and @var{high_frame}:
 -stack-list-frames 3 5
 ^done,stack=
 [frame=@{level="3",addr="0x000107a4",func="foo",
-  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14"@},
+  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14",
+  arch="i386:x86_64"@},
 frame=@{level="4",addr="0x000107a4",func="foo",
-  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14"@},
+  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14",
+  arch="i386:x86_64"@},
 frame=@{level="5",addr="0x000107a4",func="foo",
-  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14"@}]
+  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14",
+  arch="i386:x86_64"@}]
 (gdb)
 @end smallexample
 
@@ -30189,7 +30606,8 @@ Show a single frame:
 -stack-list-frames 3 3
 ^done,stack=
 [frame=@{level="3",addr="0x000107a4",func="foo",
-  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14"@}]
+  file="recursive2.c",fullname="/home/foo/bar/recursive2.c",line="14",
+  arch="i386:x86_64"@}]
 (gdb)
 @end smallexample
 
@@ -31469,7 +31887,7 @@ On a PPC MBX board:
 (gdb)
 *stopped,reason="breakpoint-hit",disp="keep",bkptno="1",frame=@{
 func="main",args=[],file="try.c",fullname="/home/foo/bar/try.c",
-line="5"@}
+line="5",arch="powerpc"@}
 (gdb)
 -data-list-changed-registers
 ^done,changed-registers=["0","1","2","4","5","6","7","8","9",
@@ -33647,7 +34065,7 @@ and only if there is a corresponding executable file.
    frame=@{level="0",addr="0xffffe410",func="__kernel_vsyscall",args=[]@},state="running"@},
 @{id="1",target-id="Thread 0xb7e156b0 (LWP 21254)",
    frame=@{level="0",addr="0x0804891f",func="foo",args=[@{name="i",value="10"@}],
-           file="/tmp/a.c",fullname="/tmp/a.c",line="158"@},state="running"@}]]
+           file="/tmp/a.c",fullname="/tmp/a.c",line="158",arch="i386:x86_64"@},state="running"@}]]
 -list-thread-groups --available
 ^done,groups=[@{id="17",type="process",pid="yyy",num_children="2",cores=[1,2]@}]
 -list-thread-groups --available --recurse 1
@@ -33879,7 +34297,7 @@ time=@{wallclock="0.05185",user="0.00800",system="0.00000"@}
 *stopped,reason="breakpoint-hit",disp="keep",bkptno="1",thread-id="0",
 frame=@{addr="0x080484ed",func="main",args=[@{name="argc",value="1"@},
 @{name="argv",value="0xbfb60364"@}],file="myprog.c",
-fullname="/home/nickrob/myprog.c",line="73"@}
+fullname="/home/nickrob/myprog.c",line="73",arch="i386:x86_64"@}
 (gdb)
 @end smallexample
 
@@ -35064,10 +35482,13 @@ Other packages will be used only if they are found.
 
 @heading Tools/Packages Necessary for Building @value{GDBN}
 @table @asis
-@item ISO C90 compiler
-@value{GDBN} is written in ISO C90.  It should be buildable with any
-working C90 compiler, e.g.@: GCC.
+@item C@t{++}11 compiler
+@value{GDBN} is written in C@t{++}11.  It should be buildable with any
+recent C@t{++}11 compiler, e.g.@: GCC.
 
+@item GNU make
+@value{GDBN}'s build system relies on features only found in the GNU
+make program.  Other variants of @code{make} will not work.
 @end table
 
 @heading Tools/Packages Optional for Building @value{GDBN}
@@ -35100,6 +35521,51 @@ Branch trace (@pxref{Branch Trace Format},
 @pxref{Branch Trace Configuration Format})
 @end itemize
 
+@item Guile
+@value{GDBN} can be scripted using GNU Guile.  @xref{Guile}.  By
+default, @value{GDBN} will be compiled if the Guile libraries are
+installed and are found by @file{configure}.  You can use the
+@code{--with-guile} option to request Guile, and pass either the Guile
+version number or the file name of the relevant @code{pkg-config}
+program to choose a particular version of Guile.
+
+@item iconv
+@value{GDBN}'s features related to character sets (@pxref{Character
+Sets}) require a functioning @code{iconv} implementation.  If you are
+on a GNU system, then this is provided by the GNU C Library.  Some
+other systems also provide a working @code{iconv}.
+
+If @value{GDBN} is using the @code{iconv} program which is installed
+in a non-standard place, you will need to tell @value{GDBN} where to
+find it.  This is done with @option{--with-iconv-bin} which specifies
+the directory that contains the @code{iconv} program.  This program is
+run in order to make a list of the available character sets.
+
+On systems without @code{iconv}, you can install GNU Libiconv.  If
+Libiconv is installed in a standard place, @value{GDBN} will
+automatically use it if it is needed.  If you have previously
+installed Libiconv in a non-standard place, you can use the
+@option{--with-libiconv-prefix} option to @file{configure}.
+
+@value{GDBN}'s top-level @file{configure} and @file{Makefile} will
+arrange to build Libiconv if a directory named @file{libiconv} appears
+in the top-most source directory.  If Libiconv is built this way, and
+if the operating system does not provide a suitable @code{iconv}
+implementation, then the just-built library will automatically be used
+by @value{GDBN}.  One easy way to set this up is to download GNU
+Libiconv, unpack it inside the top-level directory of the @value{GDBN}
+source tree, and then rename the directory holding the Libiconv source
+code to @samp{libiconv}.
+
+@item lzma
+@value{GDBN} can support debugging sections that are compressed with
+the LZMA library.  @xref{MiniDebugInfo}.  If this library is not
+included with your operating system, you can find it in the xz package
+at @url{http://tukaani.org/xz/}.  If the LZMA library is available in
+the usual place, then the @file{configure} script will use it
+automatically.  If it is installed in an unusual path, you can use the
+@option{--with-lzma-prefix} option to specify its location.
+
 @item MPFR
 @anchor{MPFR}
 @value{GDBN} can use the GNU MPFR multiple-precision floating-point
@@ -35115,6 +35581,15 @@ expression evaluation when the target uses different floating-point
 formats than the host.  If GNU MPFR it is not available, @value{GDBN}
 will fall back to using host floating-point arithmetic.
 
+@item Python
+@value{GDBN} can be scripted using Python language.  @xref{Python}.
+By default, @value{GDBN} will be compiled if the Python libraries are
+installed and are found by @file{configure}.  You can use the
+@code{--with-python} option to request Python, and pass either the
+file name of the relevant @code{python} executable, or the name of the
+directory in which Python is installed, to choose a particular
+installation of Python.
+
 @item zlib
 @cindex compressed debug sections 
 @value{GDBN} will use the @samp{zlib} library, if available, to read
@@ -35126,30 +35601,6 @@ information in such binaries.
 The @samp{zlib} library is likely included with your operating system
 distribution; if it is not, you can get the latest version from
 @url{http://zlib.net}.
-
-@item iconv
-@value{GDBN}'s features related to character sets (@pxref{Character
-Sets}) require a functioning @code{iconv} implementation.  If you are
-on a GNU system, then this is provided by the GNU C Library.  Some
-other systems also provide a working @code{iconv}.
-
-If @value{GDBN} is using the @code{iconv} program which is installed
-in a non-standard place, you will need to tell @value{GDBN} where to find it.
-This is done with @option{--with-iconv-bin} which specifies the
-directory that contains the @code{iconv} program.
-
-On systems without @code{iconv}, you can install GNU Libiconv.  If you
-have previously installed Libiconv, you can use the
-@option{--with-libiconv-prefix} option to configure.
-
-@value{GDBN}'s top-level @file{configure} and @file{Makefile} will
-arrange to build Libiconv if a directory named @file{libiconv} appears
-in the top-most source directory.  If Libiconv is built this way, and
-if the operating system does not provide a suitable @code{iconv}
-implementation, then the just-built library will automatically be used
-by @value{GDBN}.  One easy way to set this up is to download GNU
-Libiconv, unpack it, and then rename the directory holding the
-Libiconv source code to @samp{libiconv}.
 @end table
 
 @node Running Configure
@@ -35193,13 +35644,9 @@ source for the library of opcode tables and disassemblers
 
 @item gdb-@value{GDBVN}/readline
 source for the @sc{gnu} command-line interface
-
-@item gdb-@value{GDBVN}/glob
-source for the @sc{gnu} filename pattern-matching subroutine
-
-@item gdb-@value{GDBVN}/mmalloc
-source for the @sc{gnu} memory-mapped malloc package
 @end table
+
+There may be other subdirectories as well.
 
 The simplest way to configure and build @value{GDBN} is to run @file{configure}
 from the @file{gdb-@var{version-number}} source directory, which in
@@ -35214,20 +35661,14 @@ For example:
 
 @smallexample
 cd gdb-@value{GDBVN}
-./configure @var{host}
+./configure
 make
 @end smallexample
 
-@noindent
-where @var{host} is an identifier such as @samp{sun4} or
-@samp{decstation}, that identifies the platform where @value{GDBN} will run.
-(You can often leave off @var{host}; @file{configure} tries to guess the
-correct value by examining your system.)
-
-Running @samp{configure @var{host}} and then running @code{make} builds the
-@file{bfd}, @file{readline}, @file{mmalloc}, and @file{libiberty}
-libraries, then @code{gdb} itself.  The configured source files, and the
-binaries, are left in the corresponding source directories.
+Running @samp{configure} and then running @code{make} builds the
+included supporting libraries, then @code{gdb} itself.  The configured
+source files, and the binaries, are left in the corresponding source
+directories.
 
 @need 750
 @file{configure} is a Bourne-shell (@code{/bin/sh}) script; if your
@@ -35235,15 +35676,8 @@ system does not recognize this automatically when you run a different
 shell, you may need to run @code{sh} on it explicitly:
 
 @smallexample
-sh configure @var{host}
+sh configure
 @end smallexample
-
-If you run @file{configure} from a directory that contains source
-directories for multiple libraries or programs, such as the
-@file{gdb-@value{GDBVN}} source directory for version @value{GDBVN},
-@file{configure}
-creates configuration files for every directory level underneath (unless
-you tell it not to, with the @samp{--norecursion} option).
 
 You should run the @file{configure} script from the top directory in the
 source tree, the @file{gdb-@var{version-number}} directory.  If you run
@@ -35255,11 +35689,9 @@ configuration of @file{bfd}, @file{readline}, and other sibling
 directories of the @file{gdb} subdirectory.  This leads to build errors
 about missing include files such as @file{bfd/bfd.h}.
 
-You can install @code{@value{GDBP}} anywhere; it has no hardwired paths.
-However, you should make sure that the shell on your path (named by
-the @samp{SHELL} environment variable) is publicly readable.  Remember
-that @value{GDBN} uses the shell to start your program---some systems refuse to
-let @value{GDBN} debug child processes whose programs are not readable.
+You can install @code{@value{GDBN}} anywhere.  The best way to do this
+is to pass the @code{--prefix} option to @code{configure}, and then
+install it with @code{make install}.
 
 @node Separate Objdir
 @section Compiling @value{GDBN} in Another Directory
@@ -35288,7 +35720,7 @@ separate directory for a Sun 4 like this:
 cd gdb-@value{GDBVN}
 mkdir ../gdb-sun4
 cd ../gdb-sun4
-../gdb-@value{GDBVN}/configure sun4
+../gdb-@value{GDBVN}/configure
 make
 @end group
 @end smallexample
@@ -35374,18 +35806,17 @@ directory (@file{gdb-@value{GDBVN}}, for version @value{GDBVN}).
 @section @file{configure} Options
 
 Here is a summary of the @file{configure} options and arguments that
-are most often useful for building @value{GDBN}.  @file{configure} also has
-several other options not listed here.  @inforef{What Configure
-Does,,configure.info}, for a full explanation of @file{configure}.
+are most often useful for building @value{GDBN}.  @file{configure}
+also has several other options not listed here.  @inforef{Running
+configure scripts,,autoconf.info}, for a full
+explanation of @file{configure}.
 
 @smallexample
 configure @r{[}--help@r{]}
           @r{[}--prefix=@var{dir}@r{]}
           @r{[}--exec-prefix=@var{dir}@r{]}
           @r{[}--srcdir=@var{dirname}@r{]}
-          @r{[}--norecursion@r{]} @r{[}--rm@r{]}
           @r{[}--target=@var{target}@r{]}
-          @var{host}
 @end smallexample
 
 @noindent
@@ -35408,8 +35839,6 @@ Configure the source to install programs under directory
 @c avoid splitting the warning from the explanation:
 @need 2000
 @item --srcdir=@var{dirname}
-@strong{Warning: using this option requires @sc{gnu} @code{make}, or another
-@code{make} that implements the @code{VPATH} feature.}@*
 Use this option to make configurations in directories separate from the
 @value{GDBN} source directories.  Among other things, you can use this to
 build (or maintain) several configurations simultaneously, in separate
@@ -35419,25 +35848,172 @@ directory @var{dirname}.  @file{configure} creates directories under
 the working directory in parallel to the source directories below
 @var{dirname}.
 
-@item --norecursion
-Configure only the directory level where @file{configure} is executed; do not
-propagate configuration to subdirectories.
-
 @item --target=@var{target}
 Configure @value{GDBN} for cross-debugging programs running on the specified
 @var{target}.  Without this option, @value{GDBN} is configured to debug
 programs that run on the same machine (@var{host}) as @value{GDBN} itself.
 
-There is no convenient way to generate a list of all available targets.
-
-@item @var{host} @dots{}
-Configure @value{GDBN} to run on the specified @var{host}.
-
-There is no convenient way to generate a list of all available hosts.
+There is no convenient way to generate a list of all available
+targets.  Also see the @code{--enable-targets} option, below.
 @end table
 
-There are many other options available as well, but they are generally
-needed for special purposes only.
+There are many other options that are specific to @value{GDBN}.  This
+lists just the most common ones; there are some very specialized
+options not described here.
+
+@table @code
+@item --enable-targets=@r{[}@var{target}@r{]}@dots{}
+@itemx --enable-targets=all
+Configure @value{GDBN} for cross-debugging programs running on the
+specified list of targets.  The special value @samp{all} configures
+@value{GDBN} for debugging programs running on any target it supports.
+
+@item --with-gdb-datadir=@var{path}
+Set the @value{GDBN}-specific data directory.  @value{GDBN} will look
+here for certain supporting files or scripts.  This defaults to the
+@file{gdb} subdirectory of @samp{datadi} (which can be set using
+@code{--datadir}).
+
+@item --with-relocated-sources=@var{dir}
+Sets up the default source path substitution rule so that directory
+names recorded in debug information will be automatically adjusted for
+any directory under @var{dir}.  @var{dir} should be a subdirectory of
+@value{GDBN}'s configured prefix, the one mentioned in the
+@code{--prefix} or @code{--exec-prefix} options to configure.  This
+option is useful if GDB is supposed to be moved to a different place
+after it is built.
+
+@item --enable-64-bit-bfd
+Enable 64-bit support in BFD on 32-bit hosts.
+
+@item --disable-gdbmi
+Build @value{GDBN} without the GDB/MI machine interface
+(@pxref{GDB/MI}).
+
+@item --enable-tui
+Build @value{GDBN} with the text-mode full-screen user interface
+(TUI).  Requires a curses library (ncurses and cursesX are also
+supported).
+
+@item --with-curses
+Use the curses library instead of the termcap library, for text-mode
+terminal operations.
+
+@item --with-libunwind-ia64
+Use the libunwind library for unwinding function call stack on ia64
+target platforms.  See http://www.nongnu.org/libunwind/index.html for
+details.
+
+@item --with-system-readline
+Use the readline library installed on the host, rather than the
+library supplied as part of @value{GDBN}.
+
+@item --with-system-zlib
+Use the zlib library installed on the host, rather than the library
+supplied as part of @value{GDBN}.
+
+@item --with-expat
+Build @value{GDBN} with Expat, a library for XML parsing.  (Done by
+default if libexpat is installed and found at configure time.)  This
+library is used to read XML files supplied with @value{GDBN}.  If it
+is unavailable, some features, such as remote protocol memory maps,
+target descriptions, and shared library lists, that are based on XML
+files, will not be available in @value{GDBN}.  If your host does not
+have libexpat installed, you can get the latest version from
+`http://expat.sourceforge.net'.
+
+@item --with-libiconv-prefix@r{[}=@var{dir}@r{]}
+
+Build @value{GDBN} with GNU libiconv, a character set encoding
+conversion library.  This is not done by default, as on GNU systems
+the @code{iconv} that is built in to the C library is sufficient.  If
+your host does not have a working @code{iconv}, you can get the latest
+version of GNU iconv from `https://www.gnu.org/software/libiconv/'.
+
+@value{GDBN}'s build system also supports building GNU libiconv as
+part of the overall build.   @xref{Requirements}.
+
+@item --with-lzma
+Build @value{GDBN} with LZMA, a compression library.  (Done by default
+if liblzma is installed and found at configure time.)  LZMA is used by
+@value{GDBN}'s "mini debuginfo" feature, which is only useful on
+platforms using the ELF object file format.  If your host does not
+have liblzma installed, you can get the latest version from
+`https://tukaani.org/xz/'.
+
+@item --with-mpfr
+Build @value{GDBN} with GNU MPFR, a library for multiple-precision
+floating-point computation with correct rounding.  (Done by default if
+GNU MPFR is installed and found at configure time.)  This library is
+used to emulate target floating-point arithmetic during expression
+evaluation when the target uses different floating-point formats than
+the host.  If GNU MPFR is not available, @value{GDBN} will fall back
+to using host floating-point arithmetic.  If your host does not have
+GNU MPFR installed, you can get the latest version from
+`http://www.mpfr.org'.
+
+@item --with-python@r{[}=@var{python}@r{]}
+Build @value{GDBN} with Python scripting support.  (Done by default if
+libpython is present and found at configure time.)  Python makes
+@value{GDBN} scripting much more powerful than the restricted CLI
+scripting language.  If your host does not have Python installed, you
+can find it on `http://www.python.org/download/'.  The oldest version
+of Python supported by GDB is 2.4.  The optional argument @var{python}
+is used to find the Python headers and libraries.  It can be either
+the name of a Python executable, or the name of the directory in which
+Python is installed.
+
+@item --with-guile[=GUILE]'
+Build @value{GDBN} with GNU Guile scripting support.  (Done by default
+if libguile is present and found at configure time.)  If your host
+does not have Guile installed, you can find it at
+`https://www.gnu.org/software/guile/'.  The optional argument GUILE
+can be a version number, which will cause @code{configure} to try to
+use that version of Guile; or the file name of a @code{pkg-config}
+executable, which will be queried to find the information needed to
+compile and link against Guile.
+
+@item --without-included-regex
+Don't use the regex library included with @value{GDBN} (as part of the
+libiberty library).  This is the default on hosts with version 2 of
+the GNU C library.
+
+@item --with-sysroot=@var{dir}
+Use @var{dir} as the default system root directory for libraries whose
+file names begin with @file{/lib}' or @file{/usr/lib'}.  (The value of
+@var{dir} can be modified at run time by using the @command{set
+sysroot} command.)  If @var{dir} is under the @value{GDBN} configured
+prefix (set with @code{--prefix} or @code{--exec-prefix options}, the
+default system root will be automatically adjusted if and when
+@value{GDBN} is moved to a different location.
+
+@item --with-system-gdbinit=@var{file}
+Configure @value{GDBN} to automatically load a system-wide init file.
+@var{file} should be an absolute file name.  If @var{file} is in a
+directory under the configured prefix, and @value{GDBN} is moved to
+another location after being built, the location of the system-wide
+init file will be adjusted accordingly.
+
+@item --enable-build-warnings
+When building the @value{GDBN} sources, ask the compiler to warn about
+any code which looks even vaguely suspicious.  It passes many
+different warning flags, depending on the exact version of the
+compiler you are using.
+
+@item --enable-werror
+Treat compiler warnings as werrors.  It adds the @code{-Werror} flag
+to the compiler, which will fail the compilation if the compiler
+outputs any warning messages.
+
+@item --enable-ubsan
+Enable the GCC undefined behavior sanitizer.  This is disabled by
+default, but passing @code{--enable-ubsan=yes} or
+@code{--enable-ubsan=auto} to @code{configure} will enable it.  The
+undefined behavior sanitizer checks for C@t{++} undefined behavior.
+It has a performance cost, so if you are looking at @value{GDBN}'s
+performance, you should disable it.  The undefined behavior sanitizer
+was first introduced in GCC 4.9.
+@end table
 
 @node System-wide configuration
 @section System-wide configuration and settings
@@ -42330,6 +42906,7 @@ Boolean type, occupying a single bit.
 
 @item int8
 @itemx int16
+@itemx int24
 @itemx int32
 @itemx int64
 @itemx int128
@@ -42337,6 +42914,7 @@ Signed integer types holding the specified number of bits.
 
 @item uint8
 @itemx uint16
+@itemx uint24
 @itemx uint32
 @itemx uint64
 @itemx uint128
@@ -42454,6 +43032,7 @@ registers using the capitalization used in the description.
 * Nios II Features::
 * OpenRISC 1000 Features::
 * PowerPC Features::
+* RISC-V Features::
 * S/390 and System z Features::
 * Sparc Features::
 * TIC6x Features::
@@ -42768,11 +43347,13 @@ contain registers @samp{vr0} through @samp{vr31}, @samp{vscr},
 and @samp{vrsave}.
 
 The @samp{org.gnu.gdb.power.vsx} feature is optional.  It should
-contain registers @samp{vs0h} through @samp{vs31h}.  @value{GDBN}
-will combine these registers with the floating point registers
-(@samp{f0} through @samp{f31}) and the altivec registers (@samp{vr0}
-through @samp{vr31}) to present the 128-bit wide registers @samp{vs0}
-through @samp{vs63}, the set of vector registers for POWER7.
+contain registers @samp{vs0h} through @samp{vs31h}.  @value{GDBN} will
+combine these registers with the floating point registers (@samp{f0}
+through @samp{f31}) and the altivec registers (@samp{vr0} through
+@samp{vr31}) to present the 128-bit wide registers @samp{vs0} through
+@samp{vs63}, the set of vector-scalar registers for POWER7.
+Therefore, this feature requires both @samp{org.gnu.gdb.power.fpu} and
+@samp{org.gnu.gdb.power.altivec}.
 
 The @samp{org.gnu.gdb.power.spe} feature is optional.  It should
 contain registers @samp{ev0h} through @samp{ev31h}, @samp{acc}, and
@@ -42781,6 +43362,101 @@ contain registers @samp{ev0h} through @samp{ev31h}, @samp{acc}, and
 @samp{ev0h} through @samp{ev31h}.  @value{GDBN} will combine
 these to present registers @samp{ev0} through @samp{ev31} to the
 user.
+
+The @samp{org.gnu.gdb.power.ppr} feature is optional.  It should
+contain the 64-bit register @samp{ppr}.
+
+The @samp{org.gnu.gdb.power.dscr} feature is optional.  It should
+contain the 64-bit register @samp{dscr}.
+
+The @samp{org.gnu.gdb.power.tar} feature is optional.  It should
+contain the 64-bit register @samp{tar}.
+
+The @samp{org.gnu.gdb.power.ebb} feature is optional.  It should
+contain registers @samp{bescr}, @samp{ebbhr} and @samp{ebbrr}, all
+64-bit wide.
+
+The @samp{org.gnu.gdb.power.linux.pmu} feature is optional.  It should
+contain registers @samp{mmcr0}, @samp{mmcr2}, @samp{siar}, @samp{sdar}
+and @samp{sier}, all 64-bit wide.  This is the subset of the isa 2.07
+server PMU registers provided by @sc{gnu}/Linux.
+
+The @samp{org.gnu.gdb.power.htm.spr} feature is optional.  It should
+contain registers @samp{tfhar}, @samp{texasr} and @samp{tfiar}, all
+64-bit wide.
+
+The @samp{org.gnu.gdb.power.htm.core} feature is optional.  It should
+contain the checkpointed general-purpose registers @samp{cr0} through
+@samp{cr31}, as well as the checkpointed registers @samp{clr} and
+@samp{cctr}.  These registers may all be either 32-bit or 64-bit
+depending on the target.  It should also contain the checkpointed
+registers @samp{ccr} and @samp{cxer}, which should both be 32-bit
+wide.
+
+The @samp{org.gnu.gdb.power.htm.fpu} feature is optional.  It should
+contain the checkpointed 64-bit floating-point registers @samp{cf0}
+through @samp{cf31}, as well as the checkpointed 64-bit register
+@samp{cfpscr}.
+
+The @samp{org.gnu.gdb.power.htm.altivec} feature is optional.  It
+should contain the checkpointed altivec registers @samp{cvr0} through
+@samp{cvr31}, all 128-bit wide.  It should also contain the
+checkpointed registers @samp{cvscr} and @samp{cvrsave}, both 32-bit
+wide.
+
+The @samp{org.gnu.gdb.power.htm.vsx} feature is optional.  It should
+contain registers @samp{cvs0h} through @samp{cvs31h}.  @value{GDBN}
+will combine these registers with the checkpointed floating point
+registers (@samp{cf0} through @samp{cf31}) and the checkpointed
+altivec registers (@samp{cvr0} through @samp{cvr31}) to present the
+128-bit wide checkpointed vector-scalar registers @samp{cvs0} through
+@samp{cvs63}.  Therefore, this feature requires both
+@samp{org.gnu.gdb.power.htm.altivec} and
+@samp{org.gnu.gdb.power.htm.fpu}.
+
+The @samp{org.gnu.gdb.power.htm.ppr} feature is optional.  It should
+contain the 64-bit checkpointed register @samp{cppr}.
+
+The @samp{org.gnu.gdb.power.htm.dscr} feature is optional.  It should
+contain the 64-bit checkpointed register @samp{cdscr}.
+
+The @samp{org.gnu.gdb.power.htm.tar} feature is optional.  It should
+contain the 64-bit checkpointed register @samp{ctar}.
+
+
+@node RISC-V Features
+@subsection RISC-V Features
+@cindex target descriptions, RISC-V Features
+
+The @samp{org.gnu.gdb.riscv.cpu} feature is required for RISC-V
+targets.  It should contain the registers @samp{x0} through
+@samp{x31}, and @samp{pc}.  Either the architectural names (@samp{x0},
+@samp{x1}, etc) can be used, or the ABI names (@samp{zero}, @samp{ra},
+etc).
+
+The @samp{org.gnu.gdb.riscv.fpu} feature is optional.  If present, it
+should contain registers @samp{f0} through @samp{f31}, @samp{fflags},
+@samp{frm}, and @samp{fcsr}.  As with the cpu feature, either the
+architectural register names, or the ABI names can be used.
+
+The @samp{org.gnu.gdb.riscv.virtual} feature is optional.  If present,
+it should contain registers that are not backed by real registers on
+the target, but are instead virtual, where the register value is
+derived from other target state.  In many ways these are like
+@value{GDBN}s pseudo-registers, except implemented by the target.
+Currently the only register expected in this set is the one byte
+@samp{priv} register that contains the target's privilege level in the
+least significant two bits.
+
+The @samp{org.gnu.gdb.riscv.csr} feature is optional.  If present, it
+should contain all of the target's standard CSRs.  Standard CSRs are
+those defined in the RISC-V specification documents.  There is some
+overlap between this feature and the fpu feature; the @samp{fflags},
+@samp{frm}, and @samp{fcsr} registers could be in either feature.  The
+expectation is that these registers will be in the fpu feature if the
+target has floating point hardware, but can be moved into the csr
+feature if the target has the floating point control registers, but no
+other floating point hardware.
 
 @node S/390 and System z Features
 @subsection S/390 and System z Features
@@ -43614,7 +44290,7 @@ Usage (host side):
 @end ifset
 
 You need an unstripped copy of the target program on your host system, since
-@value{GDBN} needs to examine it's symbol tables and such.  Start up @value{GDBN} as you normally
+@value{GDBN} needs to examine its symbol tables and such.  Start up @value{GDBN} as you normally
 would, with the target program as the first argument.  (You may need to use the
 @option{--baud} option if the serial line is running at anything except 9600 baud.)
 That is @code{gdb TARGET-PROG}, or @code{gdb --baud BAUD TARGET-PROG}.  After that, the only

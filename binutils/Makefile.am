@@ -1,6 +1,6 @@
 ## Process this file with automake to generate Makefile.in
 #
-#   Copyright (C) 2012-2018 Free Software Foundation, Inc.
+#   Copyright (C) 2012-2019 Free Software Foundation, Inc.
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -199,6 +199,10 @@ check-DEJAGNU: site.exp
 			$(RUNTESTFLAGS); \
 	else echo "WARNING: could not find \`runtest'" 1>&2; :;\
 	fi
+
+development.exp: $(BFDDIR)/development.sh
+	$(EGREP) "[development|experimental]=" $(BFDDIR)/development.sh  \
+	  | $(AWK) -F= '{ print "set " $$1 " " $$2 }' > $@
 
 installcheck-local:
 	/bin/sh $(srcdir)/sanity.sh $(bindir)
@@ -491,7 +495,10 @@ all: info
 # development.sh is used to determine -Werror default.
 CONFIG_STATUS_DEPENDENCIES = $(BFDDIR)/development.sh
 
-DISTCLEANFILES = sysroff.c sysroff.h site.exp site.bak embedspu
+EXTRA_DEJAGNU_SITE_CONFIG = development.exp
+
+DISTCLEANFILES = sysroff.c sysroff.h site.exp development.exp \
+  site.bak embedspu
 
 MOSTLYCLEANFILES = sysinfo$(EXEEXT_FOR_BUILD) bin2c$(EXEEXT_FOR_BUILD) \
   binutils.log binutils.sum abcdefgh*

@@ -1,6 +1,6 @@
 /* Basic C++ demangling support for GDB.
 
-   Copyright (C) 1991-2018 Free Software Foundation, Inc.
+   Copyright (C) 1991-2019 Free Software Foundation, Inc.
 
    Written by Fred Fish at Cygnus Support.
 
@@ -180,11 +180,7 @@ demangle_command (const char *args, int from_tty)
       else if (strncmp (arg_start, "--", p - arg_start) == 0)
 	processing_args = 0;
       else
-	{
-	  std::string option = extract_arg (&p);
-	  error (_("Unrecognized option '%s' to demangle command.  "
-		   "Try \"help demangle\"."), option.c_str ());
-	}
+	report_unrecognized_option_error ("demangle", arg_start);
 
       arg_start = skip_spaces (p);
     }

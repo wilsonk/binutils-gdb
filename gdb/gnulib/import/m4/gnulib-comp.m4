@@ -45,6 +45,7 @@ AC_DEFUN([gl_EARLY],
   # Code from module absolute-header:
   # Code from module alloca:
   # Code from module alloca-opt:
+  # Code from module arpa_inet:
   # Code from module assure:
   # Code from module at-internal:
   # Code from module canonicalize-lgpl:
@@ -97,6 +98,7 @@ AC_DEFUN([gl_EARLY],
   # Code from module glob:
   # Code from module hard-locale:
   # Code from module include_next:
+  # Code from module inet_ntop:
   # Code from module intprops:
   # Code from module inttypes:
   # Code from module inttypes-incomplete:
@@ -119,10 +121,12 @@ AC_DEFUN([gl_EARLY],
   # Code from module mempcpy:
   # Code from module memrchr:
   # Code from module mkdir:
-  # Code from module mkstemp:
+  # Code from module mkdtemp:
+  # Code from module mkostemp:
   # Code from module msvc-inval:
   # Code from module msvc-nothrow:
   # Code from module multiarch:
+  # Code from module netinet_in:
   # Code from module nocrash:
   # Code from module open:
   # Code from module openat:
@@ -146,8 +150,10 @@ AC_DEFUN([gl_EARLY],
   # Code from module snippet/arg-nonnull:
   # Code from module snippet/c++defs:
   # Code from module snippet/warn-on-use:
+  # Code from module socklen:
   # Code from module ssize_t:
   # Code from module stat:
+  # Code from module stdalign:
   # Code from module stdbool:
   # Code from module stddef:
   # Code from module stdint:
@@ -163,9 +169,11 @@ AC_DEFUN([gl_EARLY],
   # Code from module strstr:
   # Code from module strstr-simple:
   # Code from module strtok_r:
+  # Code from module sys_socket:
   # Code from module sys_stat:
   # Code from module sys_time:
   # Code from module sys_types:
+  # Code from module sys_uio:
   # Code from module tempname:
   # Code from module time:
   # Code from module unistd:
@@ -194,6 +202,8 @@ AC_DEFUN([gl_INIT],
   gl_COMMON
   gl_source_base='import'
   gl_FUNC_ALLOCA
+  gl_HEADER_ARPA_INET
+  AC_PROG_MKDIR_P
   AC_LIBOBJ([openat-proc])
   gl_CANONICALIZE_LGPL
   if test $HAVE_CANONICALIZE_FILE_NAME = 0 || test $REPLACE_CANONICALIZE_FILE_NAME = 1; then
@@ -349,6 +359,12 @@ AC_DEFUN([gl_INIT],
     gl_PREREQ_GLOB
   fi
   gl_HARD_LOCALE
+  gl_FUNC_INET_NTOP
+  if test $HAVE_INET_NTOP = 0 || test $REPLACE_INET_NTOP = 1; then
+    AC_LIBOBJ([inet_ntop])
+    gl_PREREQ_INET_NTOP
+  fi
+  gl_ARPA_INET_MODULE_INDICATOR([inet_ntop])
   gl_INTTYPES_H
   gl_INTTYPES_INCOMPLETE
   gl_FUNC_ISNAND_NO_LIBM
@@ -429,12 +445,19 @@ AC_DEFUN([gl_INIT],
   if test $REPLACE_MKDIR = 1; then
     AC_LIBOBJ([mkdir])
   fi
-  gl_FUNC_MKSTEMP
-  if test $HAVE_MKSTEMP = 0 || test $REPLACE_MKSTEMP = 1; then
-    AC_LIBOBJ([mkstemp])
-    gl_PREREQ_MKSTEMP
+  gl_FUNC_MKDTEMP
+  if test $HAVE_MKDTEMP = 0; then
+    AC_LIBOBJ([mkdtemp])
+    gl_PREREQ_MKDTEMP
   fi
-  gl_STDLIB_MODULE_INDICATOR([mkstemp])
+  gl_STDLIB_MODULE_INDICATOR([mkdtemp])
+  gl_FUNC_MKOSTEMP
+  if test $HAVE_MKOSTEMP = 0; then
+    AC_LIBOBJ([mkostemp])
+    gl_PREREQ_MKOSTEMP
+  fi
+  gl_MODULE_INDICATOR([mkostemp])
+  gl_STDLIB_MODULE_INDICATOR([mkostemp])
   AC_REQUIRE([gl_MSVC_INVAL])
   if test $HAVE_MSVC_INVALID_PARAMETER_HANDLER = 1; then
     AC_LIBOBJ([msvc-inval])
@@ -444,6 +467,8 @@ AC_DEFUN([gl_INIT],
     AC_LIBOBJ([msvc-nothrow])
   fi
   gl_MULTIARCH
+  gl_HEADER_NETINET_IN
+  AC_PROG_MKDIR_P
   gl_FUNC_OPEN
   if test $REPLACE_OPEN = 1; then
     AC_LIBOBJ([open])
@@ -513,6 +538,7 @@ AC_DEFUN([gl_INIT],
   fi
   gl_STDLIB_MODULE_INDICATOR([setenv])
   gl_SIGNAL_H
+  gl_TYPE_SOCKLEN_T
   gt_TYPE_SSIZE_T
   gl_FUNC_STAT
   if test $REPLACE_STAT = 1; then
@@ -520,6 +546,7 @@ AC_DEFUN([gl_INIT],
     gl_PREREQ_STAT
   fi
   gl_SYS_STAT_MODULE_INDICATOR([stat])
+  gl_STDALIGN_H
   AM_STDBOOL_H
   gl_STDDEF_H
   gl_STDINT_H
@@ -565,11 +592,15 @@ AC_DEFUN([gl_INIT],
     gl_PREREQ_STRTOK_R
   fi
   gl_STRING_MODULE_INDICATOR([strtok_r])
+  AC_REQUIRE([gl_HEADER_SYS_SOCKET])
+  AC_PROG_MKDIR_P
   gl_HEADER_SYS_STAT_H
   AC_PROG_MKDIR_P
   gl_HEADER_SYS_TIME_H
   AC_PROG_MKDIR_P
   gl_SYS_TYPES_H
+  AC_PROG_MKDIR_P
+  gl_HEADER_SYS_UIO
   AC_PROG_MKDIR_P
   gl_FUNC_GEN_TEMPNAME
   gl_HEADER_TIME_H
@@ -730,6 +761,7 @@ AC_DEFUN([gl_FILE_LIST], [
   build-aux/update-copyright
   lib/alloca.c
   lib/alloca.in.h
+  lib/arpa_inet.in.h
   lib/assure.h
   lib/at-func.c
   lib/basename-lgpl.c
@@ -790,6 +822,7 @@ AC_DEFUN([gl_FILE_LIST], [
   lib/glob.in.h
   lib/hard-locale.c
   lib/hard-locale.h
+  lib/inet_ntop.c
   lib/intprops.h
   lib/inttypes.in.h
   lib/isnan.c
@@ -819,11 +852,13 @@ AC_DEFUN([gl_FILE_LIST], [
   lib/mempcpy.c
   lib/memrchr.c
   lib/mkdir.c
-  lib/mkstemp.c
+  lib/mkdtemp.c
+  lib/mkostemp.c
   lib/msvc-inval.c
   lib/msvc-inval.h
   lib/msvc-nothrow.c
   lib/msvc-nothrow.h
+  lib/netinet_in.in.h
   lib/open.c
   lib/openat-die.c
   lib/openat-priv.h
@@ -850,6 +885,7 @@ AC_DEFUN([gl_FILE_LIST], [
   lib/setenv.c
   lib/signal.in.h
   lib/stat.c
+  lib/stdalign.in.h
   lib/stdbool.in.h
   lib/stddef.in.h
   lib/stdint.in.h
@@ -869,9 +905,12 @@ AC_DEFUN([gl_FILE_LIST], [
   lib/strnlen1.h
   lib/strstr.c
   lib/strtok_r.c
+  lib/sys_socket.c
+  lib/sys_socket.in.h
   lib/sys_stat.in.h
   lib/sys_time.in.h
   lib/sys_types.in.h
+  lib/sys_uio.in.h
   lib/tempname.c
   lib/tempname.h
   lib/time.in.h
@@ -887,6 +926,7 @@ AC_DEFUN([gl_FILE_LIST], [
   m4/00gnulib.m4
   m4/absolute-header.m4
   m4/alloca.m4
+  m4/arpa_inet_h.m4
   m4/canonicalize.m4
   m4/chdir-long.m4
   m4/close.m4
@@ -935,6 +975,7 @@ AC_DEFUN([gl_FILE_LIST], [
   m4/gnulib-common.m4
   m4/hard-locale.m4
   m4/include_next.m4
+  m4/inet_ntop.m4
   m4/inttypes-pri.m4
   m4/inttypes.m4
   m4/isnand.m4
@@ -959,12 +1000,14 @@ AC_DEFUN([gl_FILE_LIST], [
   m4/mempcpy.m4
   m4/memrchr.m4
   m4/mkdir.m4
-  m4/mkstemp.m4
+  m4/mkdtemp.m4
+  m4/mkostemp.m4
   m4/mmap-anon.m4
   m4/mode_t.m4
   m4/msvc-inval.m4
   m4/msvc-nothrow.m4
   m4/multiarch.m4
+  m4/netinet_in_h.m4
   m4/nocrash.m4
   m4/off_t.m4
   m4/onceonly.m4
@@ -983,8 +1026,11 @@ AC_DEFUN([gl_FILE_LIST], [
   m4/secure_getenv.m4
   m4/setenv.m4
   m4/signal_h.m4
+  m4/socklen.m4
+  m4/sockpfaf.m4
   m4/ssize_t.m4
   m4/stat.m4
+  m4/stdalign.m4
   m4/stdbool.m4
   m4/stddef_h.m4
   m4/stdint.m4
@@ -1000,6 +1046,7 @@ AC_DEFUN([gl_FILE_LIST], [
   m4/sys_stat_h.m4
   m4/sys_time_h.m4
   m4/sys_types_h.m4
+  m4/sys_uio_h.m4
   m4/tempname.m4
   m4/time_h.m4
   m4/unistd-safer.m4

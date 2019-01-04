@@ -1,6 +1,6 @@
 /* Main header file for the bfd library -- portable access to object files.
 
-   Copyright (C) 1990-2018 Free Software Foundation, Inc.
+   Copyright (C) 1990-2019 Free Software Foundation, Inc.
 
    Contributed by Cygnus Support.
 
@@ -34,6 +34,7 @@ extern "C" {
 
 #include "ansidecl.h"
 #include "symcat.h"
+#include "bfd_stdint.h"
 #include "diagnostics.h"
 #include <stdarg.h>
 #include <sys/stat.h>
@@ -233,9 +234,6 @@ bfd_format;
 
 /* A count of carsyms (canonical archive symbols).  */
 typedef unsigned long symindex;
-
-/* How to perform a relocation.  */
-typedef const struct reloc_howto_struct reloc_howto_type;
 
 #define BFD_NO_MORE_SYMBOLS ((symindex) ~0)
 

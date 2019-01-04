@@ -1,5 +1,5 @@
 /* This module handles expression trees.
-   Copyright (C) 1991-2018 Free Software Foundation, Inc.
+   Copyright (C) 1991-2019 Free Software Foundation, Inc.
    Written by Steve Chamberlain of Cygnus Support <sac@cygnus.com>.
 
    This file is part of the GNU Binutils.
@@ -534,6 +534,7 @@ fold_binary (etree_type *tree)
      operand, binary.rhs is first operand.  */
   if (expld.result.valid_p && tree->type.node_code == SEGMENT_START)
     {
+      bfd_vma value = expld.result.value;
       const char *segment_name;
       segment_type *seg;
 
@@ -545,14 +546,16 @@ fold_binary (etree_type *tree)
 	  {
 	    if (!seg->used
 		&& config.magic_demand_paged
+		&& config.maxpagesize != 0
 		&& (seg->value % config.maxpagesize) != 0)
 	      einfo (_("%P: warning: address of `%s' "
 		       "isn't multiple of maximum page size\n"),
 		     segment_name);
 	    seg->used = TRUE;
-	    new_rel_from_abs (seg->value);
+	    value = seg->value;
 	    break;
 	  }
+      new_rel_from_abs (value);
       return;
     }
 
@@ -689,6 +692,7 @@ fold_name (etree_type *tree)
   switch (tree->type.node_code)
     {
     case SIZEOF_HEADERS:
+      link_info.load_phdrs = 1;
       if (expld.phase != lang_first_phase_enum)
 	{
 	  bfd_vma hdr_size = 0;
@@ -1523,10 +1527,26 @@ exp_get_vma (etree_type *tree, bfd_vma def, char *name)
   return def;
 }
 
+/* Return the smallest non-negative integer such that two raised to
+   that power is at least as large as the vma evaluated at TREE, if
+   TREE is a non-NULL expression that can be resolved.  If TREE is
+   NULL or cannot be resolved, return -1.  */
+
 int
-exp_get_value_int (etree_type *tree, int def, char *name)
+exp_get_power (etree_type *tree, char *name)
 {
-  return exp_get_vma (tree, def, name);
+  bfd_vma x = exp_get_vma (tree, -1, name);
+  bfd_vma p2;
+  int n;
+
+  if (x == (bfd_vma) -1)
+    return -1;
+
+  for (n = 0, p2 = 1; p2 < x; ++n, p2 <<= 1)
+    if (p2 == 0)
+      break;
+
+  return n;
 }
 
 fill_type *

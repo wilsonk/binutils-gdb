@@ -1,6 +1,6 @@
 /* Target-vector operations for controlling windows child processes, for GDB.
 
-   Copyright (C) 1995-2018 Free Software Foundation, Inc.
+   Copyright (C) 1995-2019 Free Software Foundation, Inc.
 
    Contributed by Cygnus Solutions, A Red Hat Company.
 
@@ -68,6 +68,7 @@
 #include "complaints.h"
 #include "inf-child.h"
 #include "gdb_tilde_expand.h"
+#include "common/pathstuff.h"
 
 #define AdjustTokenPrivileges		dyn_AdjustTokenPrivileges
 #define DebugActiveProcessStop		dyn_DebugActiveProcessStop
@@ -280,26 +281,29 @@ static const int *mappings;
    a segment register or not.  */
 static segment_register_p_ftype *segment_register_p;
 
+/* See windows_nat_target::resume to understand why this is commented
+   out.  */
+#if 0
 /* This vector maps the target's idea of an exception (extracted
    from the DEBUG_EVENT structure) to GDB's idea.  */
 
 struct xlate_exception
   {
-    int them;
+    DWORD them;
     enum gdb_signal us;
   };
 
-static const struct xlate_exception
-  xlate[] =
+static const struct xlate_exception xlate[] =
 {
   {EXCEPTION_ACCESS_VIOLATION, GDB_SIGNAL_SEGV},
   {STATUS_STACK_OVERFLOW, GDB_SIGNAL_SEGV},
   {EXCEPTION_BREAKPOINT, GDB_SIGNAL_TRAP},
   {DBG_CONTROL_C, GDB_SIGNAL_INT},
   {EXCEPTION_SINGLE_STEP, GDB_SIGNAL_TRAP},
-  {STATUS_FLOAT_DIVIDE_BY_ZERO, GDB_SIGNAL_FPE},
-  {-1, GDB_SIGNAL_UNKNOWN}};
+  {STATUS_FLOAT_DIVIDE_BY_ZERO, GDB_SIGNAL_FPE}
+};
 
+#endif /* 0 */
 
 struct windows_nat_target final : public x86_nat_target<inf_child_target>
 {
@@ -1408,12 +1412,11 @@ windows_nat_target::resume (ptid_t ptid, int step, enum gdb_signal sig)
   structure when passing the exception to the inferior.
   Note that this seems possible in the exception handler itself.  */
 	{
-	  int i;
-	  for (i = 0; xlate[i].them != -1; i++)
-	    if (xlate[i].us == sig)
+	  for (const xlate_exception &x : xlate)
+	    if (x.us == sig)
 	      {
 		current_event.u.Exception.ExceptionRecord.ExceptionCode
-		  = xlate[i].them;
+		  = x.them;
 		continue_status = DBG_EXCEPTION_NOT_HANDLED;
 		break;
 	      }
@@ -1702,8 +1705,6 @@ windows_nat_target::wait (ptid_t ptid, struct target_waitstatus *ourstatus,
 			  int options)
 {
   int pid = -1;
-
-  target_terminal::ours ();
 
   /* We loop when we get a non-standard exception rather than return
      with a SPURIOUS because resume can try and step or modify things,
@@ -2578,9 +2579,7 @@ windows_nat_target::create_inferior (const char *exec_file,
     }
   else
     {
-      sh = getenv ("SHELL");
-      if (!sh)
-	sh = "/bin/sh";
+      sh = get_shell ();
       if (cygwin_conv_path (CCP_POSIX_TO_WIN_W, sh, shell, __PMAX) < 0)
       	error (_("Error starting executable via shell: %d"), errno);
 #ifdef __USEWIDE

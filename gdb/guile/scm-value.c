@@ -1,6 +1,6 @@
 /* Scheme interface to values.
 
-   Copyright (C) 2008-2018 Free Software Foundation, Inc.
+   Copyright (C) 2008-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -730,8 +730,8 @@ gdbscm_value_call (SCM self, SCM args)
     {
       scoped_value_mark free_values;
 
-      value *return_value = call_function_by_hand (function, NULL,
-						   args_count, vargs);
+      auto av = gdb::make_array_view (vargs, args_count);
+      value *return_value = call_function_by_hand (function, NULL, av);
       return vlscm_scm_from_value (return_value);
     });
 }
@@ -966,7 +966,8 @@ gdbscm_value_to_string (SCM self, SCM rest)
   int encoding_arg_pos = -1, errors_arg_pos = -1, length_arg_pos = -1;
   char *encoding = NULL;
   SCM errors = SCM_BOOL_F;
-  gdb_byte *buffer_contents;
+  /* Avoid an uninitialized warning from gcc.  */
+  gdb_byte *buffer_contents = nullptr;
   int length = -1;
   const char *la_encoding = NULL;
   struct type *char_type = NULL;

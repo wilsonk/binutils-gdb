@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2018 Free Software Foundation, Inc.
+// Copyright (C) 2016-2019 Free Software Foundation, Inc.
 
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -92,6 +92,8 @@ struct SimpleLayout {
     f2: u16
 }
 
+enum EmptyEnum {}
+
 fn main () {
     let a = ();
     let b : [i32; 0] = [];
@@ -166,7 +168,9 @@ fn main () {
     };
 
     let u = Union { f2: 255 };
-    let v = SimpleLayout { f1: 8, f2: 9 };
+    let simplelayout = SimpleLayout { f1: 8, f2: 9 };
+
+    let empty_enum_value: EmptyEnum;
 
     println!("{}, {}", x.0, x.1);        // set breakpoint here
     println!("{}", diff2(92, 45));

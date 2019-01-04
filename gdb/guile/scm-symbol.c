@@ -1,6 +1,6 @@
 /* Scheme interface to symbols.
 
-   Copyright (C) 2008-2018 Free Software Foundation, Inc.
+   Copyright (C) 2008-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -609,10 +609,10 @@ gdbscm_lookup_symbol (SCM name_scm, SCM rest)
 	  selected_frame = get_selected_frame (_("no frame selected"));
 	  block = get_frame_block (selected_frame, NULL);
 	}
-      CATCH (except, RETURN_MASK_ALL)
+      CATCH (ex, RETURN_MASK_ALL)
 	{
 	  xfree (name);
-	  GDBSCM_HANDLE_GDB_EXCEPTION (except);
+	  GDBSCM_HANDLE_GDB_EXCEPTION (ex);
 	}
       END_CATCH
     }

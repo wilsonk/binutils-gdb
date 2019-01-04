@@ -1,6 +1,6 @@
 /* Target-dependent code for the NDS32 architecture, for GDB.
 
-   Copyright (C) 2013-2018 Free Software Foundation, Inc.
+   Copyright (C) 2013-2019 Free Software Foundation, Inc.
    Contributed by Andes Technology Corporation.
 
    This file is part of GDB.
@@ -1490,7 +1490,8 @@ static CORE_ADDR
 nds32_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 		       struct regcache *regcache, CORE_ADDR bp_addr,
 		       int nargs, struct value **args, CORE_ADDR sp,
-		       int struct_return, CORE_ADDR struct_addr)
+		       function_call_return_method return_method,
+		       CORE_ADDR struct_addr)
 {
   const int REND = 6;		/* End for register offset.  */
   int goff = 0;			/* Current gpr offset for argument.  */
@@ -1511,7 +1512,7 @@ nds32_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
   /* If STRUCT_RETURN is true, then the struct return address (in
      STRUCT_ADDR) will consume the first argument-passing register.
      Both adjust the register count and store that value.  */
-  if (struct_return)
+  if (return_method == return_method_struct)
     {
       regcache_cooked_write_unsigned (regcache, NDS32_R0_REGNUM, struct_addr);
       goff++;
@@ -2099,7 +2100,7 @@ nds32_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 
   /* Add NDS32 register aliases.  To avoid search in user register name space,
      user_reg_map_name_to_regnum is not used.  */
-  maxregs = (gdbarch_num_regs (gdbarch) + gdbarch_num_pseudo_regs (gdbarch));
+  maxregs = gdbarch_num_cooked_regs (gdbarch);
   for (i = 0; i < ARRAY_SIZE (nds32_register_aliases); i++)
     {
       int regnum, j;

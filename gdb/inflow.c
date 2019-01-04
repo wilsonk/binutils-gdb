@@ -1,5 +1,5 @@
 /* Low level interface to ptrace, for GDB when running under Unix.
-   Copyright (C) 1986-2018 Free Software Foundation, Inc.
+   Copyright (C) 1986-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -546,9 +546,8 @@ void
 child_interrupt (struct target_ops *self)
 {
   /* Interrupt the first inferior that has a resumed thread.  */
-  thread_info *thr;
   thread_info *resumed = NULL;
-  ALL_NON_EXITED_THREADS (thr)
+  for (thread_info *thr : all_non_exited_threads ())
     {
       if (thr->executing)
 	{
@@ -605,8 +604,7 @@ child_pass_ctrlc (struct target_ops *self)
 
   /* Otherwise, pass the Ctrl-C to the first inferior that was resumed
      in the foreground.  */
-  inferior *inf;
-  ALL_INFERIORS (inf)
+  for (inferior *inf : all_inferiors ())
     {
       if (inf->terminal_state != target_terminal_state::is_ours)
 	{
@@ -700,6 +698,22 @@ copy_terminal_info (struct inferior *to, struct inferior *from)
       = serial_copy_tty_state (stdin_serial, tinfo_from->ttystate);
 
   to->terminal_state = from->terminal_state;
+}
+
+/* See terminal.h.  */
+
+void
+swap_terminal_info (inferior *a, inferior *b)
+{
+  terminal_info *info_a
+    = (terminal_info *) inferior_data (a, inflow_inferior_data);
+  terminal_info *info_b
+    = (terminal_info *) inferior_data (a, inflow_inferior_data);
+
+  set_inferior_data (a, inflow_inferior_data, info_b);
+  set_inferior_data (b, inflow_inferior_data, info_a);
+
+  std::swap (a->terminal_state, b->terminal_state);
 }
 
 void

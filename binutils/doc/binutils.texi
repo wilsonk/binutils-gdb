@@ -10,7 +10,7 @@
 
 @copying
 @c man begin COPYRIGHT
-Copyright @copyright{} 1991-2018 Free Software Foundation, Inc.
+Copyright @copyright{} 1991-2019 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.3
@@ -42,7 +42,7 @@ section entitled ``GNU Free Documentation License''.
 * size: (binutils)size.           List section sizes and total size.
 * strings: (binutils)strings.     List printable strings from files.
 * strip: (binutils)strip.         Discard symbols.
-* elfedit: (binutils)elfedit.     Update the ELF header of ELF files.
+* elfedit: (binutils)elfedit.     Update ELF header and property of ELF files.
 * windmc: (binutils)windmc.	  Generator for Windows message resources.
 * windres: (binutils)windres.	  Manipulate Windows resources.
 @end direntry
@@ -111,7 +111,7 @@ List printable strings from files
 Discard symbols
 
 @item elfedit
-Update the ELF header of ELF files.
+Update the ELF header and program property of ELF files.
 
 @item c++filt
 Demangle encoded C++ symbols (on MS-DOS, this program is named
@@ -151,7 +151,7 @@ in the section entitled ``GNU Free Documentation License''.
 * windres::			Manipulate Windows resources
 * dlltool::			Create files needed to build and use DLLs
 * readelf::                     Display the contents of ELF format files
-* elfedit::                     Update the ELF header of ELF files
+* elfedit::                     Update ELF header and property of ELF files
 * Common Options::              Command-line options for all utilities
 * Selecting the Target System:: How these utilities determine the target
 * Reporting Bugs::              Reporting Bugs
@@ -769,7 +769,9 @@ nm [@option{-A}|@option{-o}|@option{--print-file-name}] [@option{-a}|@option{--d
    [@option{-s}|@option{--print-armap}] [@option{-t} @var{radix}|@option{--radix=}@var{radix}]
    [@option{-u}|@option{--undefined-only}] [@option{-V}|@option{--version}]
    [@option{-X 32_64}] [@option{--defined-only}] [@option{--no-demangle}]
-   [@option{--plugin} @var{name}] [@option{--size-sort}] [@option{--special-syms}]
+   [@option{--plugin} @var{name}]
+   [@option{--no-recurse-limit}|@option{--recurse-limit}]]
+   [@option{--size-sort}] [@option{--special-syms}]
    [@option{--synthetic}] [@option{--with-symbol-versions}] [@option{--target=}@var{bfdname}]
    [@var{objfile}@dots{}]
 @c man end
@@ -938,6 +940,22 @@ for more information on demangling.
 
 @item --no-demangle
 Do not demangle low-level symbol names.  This is the default.
+
+@item --recurse-limit
+@itemx --no-recurse-limit
+@itemx --recursion-limit
+@itemx --no-recursion-limit
+Enables or disables a limit on the amount of recursion performed
+whilst demangling strings.  Since the name mangling formats allow for
+an inifinite level of recursion it is possible to create strings whose
+decoding will exhaust the amount of stack space available on the host
+machine, triggering a memory fault.  The limit tries to prevent this
+from happening by restricting recursion to 2048 levels of nesting.
+
+The default is for this limit to be enabled, but disabling it may be
+necessary in order to demangle truly complicated names.  Note however
+that if the recursion limit is disabled then stack exhaustion is
+possible and any bug reports about such an event will be rejected.
 
 @item -D
 @itemx --dynamic
@@ -1129,6 +1147,7 @@ objcopy [@option{-F} @var{bfdname}|@option{--target=}@var{bfdname}]
         [@option{--localize-hidden}]
         [@option{-L} @var{symbolname}|@option{--localize-symbol=}@var{symbolname}]
         [@option{--globalize-symbol=}@var{symbolname}]
+        [@option{--globalize-symbols=}@var{filename}]
         [@option{-W} @var{symbolname}|@option{--weaken-symbol=}@var{symbolname}]
         [@option{-w}|@option{--wildcard}]
         [@option{-x}|@option{--discard-all}]
@@ -1169,7 +1188,6 @@ objcopy [@option{-F} @var{bfdname}|@option{--target=}@var{bfdname}]
         [@option{--strip-unneeded-symbols=}@var{filename}]
         [@option{--keep-global-symbols=}@var{filename}]
         [@option{--localize-symbols=}@var{filename}]
-        [@option{--globalize-symbols=}@var{filename}]
         [@option{--weaken-symbols=}@var{filename}]
         [@option{--add-symbol} @var{name}=[@var{section}:]@var{value}[,@var{flags}]]
         [@option{--alt-machine-code=}@var{index}]
@@ -1321,17 +1339,20 @@ will remove all sections matching the pattern '.text.*', but will not
 remove the section '.text.foo'.
 
 @item --remove-relocations=@var{sectionpattern}
-Remove relocations from the output file for any section matching
-@var{sectionpattern}.  This option may be given more than once.  Note
-that using this option inappropriately may make the output file
-unusable.  Wildcard characters are accepted in @var{sectionpattern}.
+Remove non-dynamic relocations from the output file for any section
+matching @var{sectionpattern}.  This option may be given more than
+once.  Note that using this option inappropriately may make the output
+file unusable, and attempting to remove a dynamic relocation section
+such as @samp{.rela.plt} from an executable or shared library with
+@option{--remove-relocations=.plt} will not work.  Wildcard characters
+are accepted in @var{sectionpattern}.
 For example:
 
 @smallexample
   --remove-relocations=.text.*
 @end smallexample
 
-will remove the relocations for all sections matching the patter
+will remove the relocations for all sections matching the pattern
 '.text.*'.
 
 If the first character of @var{sectionpattern} is the exclamation
@@ -1377,7 +1398,9 @@ by a relocation.  This option may be given more than once.
 @itemx --keep-global-symbol=@var{symbolname}
 Keep only symbol @var{symbolname} global.  Make all other symbols local
 to the file, so that they are not visible externally.  This option may
-be given more than once.
+be given more than once.  Note: this option cannot be used in
+conjunction with the @option{--globalize-symbol} or
+@option{--globalize-symbols} options.
 
 @item --localize-hidden
 In an ELF object, mark all symbols that have hidden or internal visibility
@@ -1397,7 +1420,8 @@ Make symbol @var{symbolname} weak. This option may be given more than once.
 @item --globalize-symbol=@var{symbolname}
 Give symbol @var{symbolname} global scoping so that it is visible
 outside of the file in which it is defined.  This option may be given
-more than once.
+more than once.  Note: this option cannot be used in conjunction with
+the @option{-G} or @option{--keep-global-symbol} options.
 
 @item -w
 @itemx --wildcard
@@ -1771,7 +1795,9 @@ This option may be given more than once.
 Apply @option{--globalize-symbol} option to each symbol listed in the file
 @var{filename}.  @var{filename} is simply a flat file, with one symbol
 name per line.  Line comments may be introduced by the hash character.
-This option may be given more than once.
+This option may be given more than once.  Note: this option cannot be
+used in conjunction with the @option{-G} or @option{--keep-global-symbol}
+options.
 
 @item --weaken-symbols=@var{filename}
 Apply @option{--weaken-symbol} option to each symbol listed in the file
@@ -2055,7 +2081,7 @@ ld(1), objdump(1), and the Info entries for @file{binutils}.
 objdump [@option{-a}|@option{--archive-headers}]
         [@option{-b} @var{bfdname}|@option{--target=@var{bfdname}}]
         [@option{-C}|@option{--demangle}[=@var{style}] ]
-        [@option{-d}|@option{--disassemble}]
+        [@option{-d}|@option{--disassemble}[=@var{symbol}]]
         [@option{-D}|@option{--disassemble-all}]
         [@option{-z}|@option{--disassemble-zeroes}]
         [@option{-EB}|@option{-EL}|@option{--endian=}@{big | little @}]
@@ -2090,6 +2116,7 @@ objdump [@option{-a}|@option{--archive-headers}]
         [@option{--adjust-vma=}@var{offset}]
         [@option{--dwarf-depth=@var{n}}]
         [@option{--dwarf-start=@var{n}}]
+        [@option{--no-recurse-limit}|@option{--recurse-limit}]
         [@option{--special-syms}]
         [@option{--prefix=}@var{prefix}]
         [@option{--prefix-strip=}@var{level}]
@@ -2166,6 +2193,22 @@ mangling styles. The optional demangling style argument can be used to
 choose an appropriate demangling style for your compiler. @xref{c++filt},
 for more information on demangling.
 
+@item --recurse-limit
+@itemx --no-recurse-limit
+@itemx --recursion-limit
+@itemx --no-recursion-limit
+Enables or disables a limit on the amount of recursion performed
+whilst demangling strings.  Since the name mangling formats allow for
+an inifinite level of recursion it is possible to create strings whose
+decoding will exhaust the amount of stack space available on the host
+machine, triggering a memory fault.  The limit tries to prevent this
+from happening by restricting recursion to 2048 levels of nesting.
+
+The default is for this limit to be enabled, but disabling it may be
+necessary in order to demangle truly complicated names.  Note however
+that if the recursion limit is disabled then stack exhaustion is
+possible and any bug reports about such an event will be rejected.
+
 @item -g
 @itemx --debugging
 Display debugging information.  This attempts to parse STABS
@@ -2181,11 +2224,15 @@ with ctags tool.
 
 @item -d
 @itemx --disassemble
+@itemx --disassemble=@var{symbol}
 @cindex disassembling object code
 @cindex machine instructions
-Display the assembler mnemonics for the machine instructions from
-@var{objfile}.  This option only disassembles those sections which are
-expected to contain instructions.
+Display the assembler mnemonics for the machine instructions from the
+input file.  This option only disassembles those sections which are 
+expected to contain instructions.  If the optional @var{symbol}
+argument is given, then display the assembler mnemonics only from
+@var{symbol} up to next symbol.  If there are no matches for
+@var{symbol} then nothing will be displayed.
 
 @item -D
 @itemx --disassemble-all
@@ -3391,6 +3438,8 @@ c++filt [@option{-_}|@option{--strip-underscore}]
         [@option{-p}|@option{--no-params}]
         [@option{-t}|@option{--types}]
         [@option{-i}|@option{--no-verbose}]
+        [@option{-r}|@option{--no-recurse-limit}]
+        [@option{-R}|@option{--recurse-limit}]
         [@option{-s} @var{format}|@option{--format=}@var{format}]
         [@option{--help}]  [@option{--version}]  [@var{symbol}@dots{}]
 @c man end
@@ -3495,6 +3544,28 @@ demangled to ``signed char''.
 Do not include implementation details (if any) in the demangled
 output.
 
+@item -r
+@itemx -R
+@itemx --recurse-limit
+@itemx --no-recurse-limit
+@itemx --recursion-limit
+@itemx --no-recursion-limit
+Enables or disables a limit on the amount of recursion performed
+whilst demangling strings.  Since the name mangling formats allow for
+an inifinite level of recursion it is possible to create strings whose
+decoding will exhaust the amount of stack space available on the host
+machine, triggering a memory fault.  The limit tries to prevent this
+from happening by restricting recursion to 2048 levels of nesting.
+
+The default is for this limit to be enabled, but disabling it may be
+necessary in order to demangle truly complicated names.  Note however
+that if the recursion limit is disabled then stack exhaustion is
+possible and any bug reports about such an event will be rejected.
+
+The @option{-r} option is a synonym for the
+@option{--no-recurse-limit} option.  The @option{-R} option is a
+synonym for the @option{--recurse-limit} option.
+
 @item -s @var{format}
 @itemx --format=@var{format}
 @command{c++filt} can decode various methods of mangling, used by
@@ -3568,6 +3639,8 @@ c++filt @var{option} @var{symbol}
 addr2line [@option{-a}|@option{--addresses}]
           [@option{-b} @var{bfdname}|@option{--target=}@var{bfdname}]
           [@option{-C}|@option{--demangle}[=@var{style}]]
+          [@option{-r}|@option{--no-recurse-limit}]
+          [@option{-R}|@option{--recurse-limit}]
           [@option{-e} @var{filename}|@option{--exe=}@var{filename}]
           [@option{-f}|@option{--functions}] [@option{-s}|@option{--basename}]
           [@option{-i}|@option{--inlines}]
@@ -3693,6 +3766,32 @@ Read offsets relative to the specified section instead of absolute addresses.
 Make the output more human friendly: each location are printed on one line.
 If option @option{-i} is specified, lines for all enclosing scopes are
 prefixed with @samp{(inlined by)}.
+
+@item -r
+@itemx -R
+@itemx --recurse-limit
+@itemx --no-recurse-limit
+@itemx --recursion-limit
+@itemx --no-recursion-limit
+Enables or disables a limit on the amount of recursion performed
+whilst demangling strings.  Since the name mangling formats allow for
+an inifinite level of recursion it is possible to create strings whose
+decoding will exhaust the amount of stack space available on the host
+machine, triggering a memory fault.  The limit tries to prevent this
+from happening by restricting recursion to 2048 levels of nesting.
+
+The default is for this limit to be enabled, but disabling it may be
+necessary in order to demangle truly complicated names.  Note however
+that if the recursion limit is disabled then stack exhaustion is
+possible and any bug reports about such an event will be rejected.
+
+The @option{-r} option is a synonym for the
+@option{--no-recurse-limit} option.  The @option{-R} option is a
+synonym for the @option{--recurse-limit} option.
+
+Note this option is only effective if the @option{-C} or
+@option{--demangle} option has been enabled.
+
 @end table
 
 @c man end
@@ -4612,7 +4711,11 @@ Displays the contents of the file's relocation section, if it has one.
 @cindex unwind information
 Displays the contents of the file's unwind section, if it has one.  Only
 the unwind sections for IA64 ELF files, as well as ARM unwind tables
-(@code{.ARM.exidx} / @code{.ARM.extab}) are currently supported.
+(@code{.ARM.exidx} / @code{.ARM.extab}) are currently supported.  If
+support is not yet implemented for your architecture you could try
+dumping the contents of the @var{.eh_frames} section using the
+@option{--debug-dump=frames} or @option{--debug-dump=frames-interp}
+options.
 
 @item -d
 @itemx --dynamic
@@ -4713,7 +4816,7 @@ objdump(1), and the Info entries for @file{binutils}.
 @cindex Update ELF header
 @kindex elfedit
 
-@c man title elfedit Update the ELF header of ELF files.
+@c man title elfedit Update ELF header and program property of ELF files.
 
 @smallexample
 @c man begin SYNOPSIS elfedit
@@ -4723,6 +4826,8 @@ elfedit [@option{--input-mach=}@var{machine}]
         @option{--output-mach=}@var{machine}
         @option{--output-type=}@var{type}
         @option{--output-osabi=}@var{osabi}
+        @option{--enable-x86-feature=}@var{feature}
+        @option{--disable-x86-feature=}@var{feature}
         [@option{-v}|@option{--version}]
         [@option{-h}|@option{--help}]
         @var{elffile}@dots{}
@@ -4731,9 +4836,10 @@ elfedit [@option{--input-mach=}@var{machine}]
 
 @c man begin DESCRIPTION elfedit
 
-@command{elfedit} updates the ELF header of ELF files which have
-the matching ELF machine and file types.  The options control how and
-which fields in the ELF header should be updated.
+@command{elfedit} updates the ELF header and program property of ELF
+files which have the matching ELF machine and file types.  The options
+control how and which fields in the ELF header and program property
+should be updated.
 
 @var{elffile}@dots{} are the ELF files to be updated.  32-bit and
 64-bit ELF files are supported, as are archives containing ELF files.
@@ -4743,7 +4849,9 @@ which fields in the ELF header should be updated.
 
 The long and short forms of options, shown here as alternatives, are
 equivalent. At least one of the @option{--output-mach},
-@option{--output-type} and @option{--output-osabi} options must be given.
+@option{--output-type}, @option{--output-osabi},
+@option{--enable-x86-feature} and @option{--disable-x86-feature}
+options must be given.
 
 @table @env
 
@@ -4782,6 +4890,19 @@ The supported ELF OSABIs are, @var{none}, @var{HPUX}, @var{NetBSD},
 @item --output-osabi=@var{osabi}
 Change the ELF OSABI in the ELF header to @var{osabi}.  The
 supported ELF OSABI are the same as @option{--input-osabi}.
+
+@item --enable-x86-feature=@var{feature}
+Set the @var{feature} bit in program property in @var{exec} or @var{dyn}
+ELF files with machine types of @var{i386} or @var{x86-64}.  The
+supported features are, @var{ibt} and @var{shstk}.
+
+@item --disable-x86-feature=@var{feature}
+Clear the @var{feature} bit in program property in @var{exec} or
+@var{dyn} ELF files with machine types of @var{i386} or @var{x86-64}.
+The supported features are the same as @option{--enable-x86-feature}.
+
+Note: @option{--enable-x86-feature} and @option{--disable-x86-feature}
+are available only on hosts with @samp{mmap} support.
 
 @item -v
 @itemx --version

@@ -1,5 +1,5 @@
 /* Parse options for the GNU linker.
-   Copyright (C) 1991-2018 Free Software Foundation, Inc.
+   Copyright (C) 1991-2019 Free Software Foundation, Inc.
 
    This file is part of the GNU Binutils.
 
@@ -1233,7 +1233,7 @@ parse_args (unsigned argc, char **argv)
 	  command_line.symbolic = symbolic_functions;
 	  break;
 	case 't':
-	  trace_files = TRUE;
+	  ++trace_files;
 	  break;
 	case 'T':
 	  previous_script_handle = saved_script_handle;

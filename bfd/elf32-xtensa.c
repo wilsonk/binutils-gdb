@@ -1,5 +1,5 @@
 /* Xtensa-specific support for 32-bit ELF.
-   Copyright (C) 2003-2018 Free Software Foundation, Inc.
+   Copyright (C) 2003-2019 Free Software Foundation, Inc.
 
    This file is part of BFD, the Binary File Descriptor library.
 
@@ -1957,8 +1957,9 @@ elf_xtensa_do_reloc (reloc_howto_type *howto,
 	}
       else if (opcode == get_const16_opcode ())
 	{
-	  /* ALT used for high 16 bits.  */
-	  newval = relocation >> 16;
+	  /* ALT used for high 16 bits.
+	     Ignore 32-bit overflow.  */
+	  newval = (relocation >> 16) & 0xffff;
 	  opnd = 1;
 	}
       else
@@ -2458,7 +2459,11 @@ elf_xtensa_relocate_section (bfd *output_bfd,
   if (!xtensa_default_isa)
     xtensa_default_isa = xtensa_isa_init (0, 0);
 
-  BFD_ASSERT (is_xtensa_elf (input_bfd));
+  if (!is_xtensa_elf (input_bfd))
+    {
+      bfd_set_error (bfd_error_wrong_format);
+      return FALSE;
+    }
 
   htab = elf_xtensa_hash_table (info);
   if (htab == NULL)

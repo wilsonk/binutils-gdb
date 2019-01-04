@@ -1,6 +1,6 @@
 /* Minimal symbol table definitions for GDB.
 
-   Copyright (C) 2011-2018 Free Software Foundation, Inc.
+   Copyright (C) 2011-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -128,10 +128,7 @@ class minimal_symbol_reader
 
  private:
 
-  /* No need for these.  They are intentionally not defined anywhere.  */
-  minimal_symbol_reader &operator=
-    (const minimal_symbol_reader &);
-  minimal_symbol_reader (const minimal_symbol_reader &);
+  DISABLE_COPY_AND_ASSIGN (minimal_symbol_reader);
 
   struct objfile *m_objfile;
 

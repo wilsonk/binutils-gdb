@@ -1,6 +1,6 @@
 /* GDB routines for manipulating objfiles.
 
-   Copyright (C) 1992-2018 Free Software Foundation, Inc.
+   Copyright (C) 1992-2019 Free Software Foundation, Inc.
 
    Contributed by Cygnus Support, using pieces from other GDB modules.
 
@@ -773,15 +773,13 @@ static int
 objfile_relocate1 (struct objfile *objfile, 
 		   const struct section_offsets *new_offsets)
 {
-  struct obj_section *s;
   struct section_offsets *delta =
     ((struct section_offsets *) 
      alloca (SIZEOF_N_SECTION_OFFSETS (objfile->num_sections)));
 
-  int i;
   int something_changed = 0;
 
-  for (i = 0; i < objfile->num_sections; ++i)
+  for (int i = 0; i < objfile->num_sections; ++i)
     {
       delta->offsets[i] =
 	ANOFFSET (new_offsets, i) - ANOFFSET (objfile->section_offsets, i);
@@ -799,13 +797,12 @@ objfile_relocate1 (struct objfile *objfile,
     ALL_OBJFILE_FILETABS (objfile, cust, s)
     {
       struct linetable *l;
-      int i;
 
       /* First the line table.  */
       l = SYMTAB_LINETABLE (s);
       if (l)
 	{
-	  for (i = 0; i < l->nitems; ++i)
+	  for (int i = 0; i < l->nitems; ++i)
 	    l->item[i].pc += ANOFFSET (delta,
 				       COMPUNIT_BLOCK_LINE_SECTION
 					 (cust));
@@ -821,7 +818,7 @@ objfile_relocate1 (struct objfile *objfile,
 	addrmap_relocate (BLOCKVECTOR_MAP (bv),
 			  ANOFFSET (delta, block_line_section));
 
-      for (i = 0; i < BLOCKVECTOR_NBLOCKS (bv); ++i)
+      for (int i = 0; i < BLOCKVECTOR_NBLOCKS (bv); ++i)
 	{
 	  struct block *b;
 	  struct symbol *sym;
@@ -830,6 +827,14 @@ objfile_relocate1 (struct objfile *objfile,
 	  b = BLOCKVECTOR_BLOCK (bv, i);
 	  BLOCK_START (b) += ANOFFSET (delta, block_line_section);
 	  BLOCK_END (b) += ANOFFSET (delta, block_line_section);
+
+	  if (BLOCK_RANGES (b) != nullptr)
+	    for (int j = 0; j < BLOCK_NRANGES (b); j++)
+	      {
+		BLOCK_RANGE_START (b, j)
+		  += ANOFFSET (delta, block_line_section);
+		BLOCK_RANGE_END (b, j) += ANOFFSET (delta, block_line_section);
+	      }
 
 	  /* We only want to iterate over the local symbols, not any
 	     symbols in included symtabs.  */
@@ -864,6 +869,7 @@ objfile_relocate1 (struct objfile *objfile,
   get_objfile_pspace_data (objfile->pspace)->section_map_dirty = 1;
 
   /* Update the table in exec_ops, used to read memory.  */
+  struct obj_section *s;
   ALL_OBJFILE_OSECTIONS (objfile, s)
     {
       int idx = s - objfile->sections;

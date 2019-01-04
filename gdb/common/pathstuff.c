@@ -1,6 +1,6 @@
 /* Path manipulation routines for GDB and gdbserver.
 
-   Copyright (C) 1986-2018 Free Software Foundation, Inc.
+   Copyright (C) 1986-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -164,21 +164,77 @@ contains_dir_separator (const char *path)
 std::string
 get_standard_cache_dir ()
 {
-  char *xdg_cache_home = getenv ("XDG_CACHE_HOME");
+#ifdef __APPLE__
+#define HOME_CACHE_DIR "Library/Caches"
+#else
+#define HOME_CACHE_DIR ".cache"
+#endif
+
+#ifndef __APPLE__
+  const char *xdg_cache_home = getenv ("XDG_CACHE_HOME");
   if (xdg_cache_home != NULL)
     {
       /* Make sure the path is absolute and tilde-expanded.  */
       gdb::unique_xmalloc_ptr<char> abs (gdb_abspath (xdg_cache_home));
       return string_printf ("%s/gdb", abs.get ());
     }
+#endif
 
-  char *home = getenv ("HOME");
+  const char *home = getenv ("HOME");
   if (home != NULL)
     {
       /* Make sure the path is absolute and tilde-expanded.  */
       gdb::unique_xmalloc_ptr<char> abs (gdb_abspath (home));
-      return string_printf ("%s/.cache/gdb", abs.get ());
+      return string_printf ("%s/" HOME_CACHE_DIR "/gdb", abs.get ());
     }
 
   return {};
+}
+
+/* See common/pathstuff.h.  */
+
+std::string
+get_standard_temp_dir ()
+{
+#ifdef WIN32
+  const char *tmp = getenv ("TMP");
+  if (tmp != nullptr)
+    return tmp;
+
+  tmp = getenv ("TEMP");
+  if (tmp != nullptr)
+    return tmp;
+
+  error (_("Couldn't find temp dir path, both TMP and TEMP are unset."));
+
+#else
+  const char *tmp = getenv ("TMPDIR");
+  if (tmp != nullptr)
+    return tmp;
+
+  return "/tmp";
+#endif
+}
+
+/* See common/pathstuff.h.  */
+
+const char *
+get_shell ()
+{
+  const char *ret = getenv ("SHELL");
+  if (ret == NULL)
+    ret = "/bin/sh";
+
+  return ret;
+}
+
+/* See common/pathstuff.h.  */
+
+gdb::char_vector
+make_temp_filename (const std::string &f)
+{
+  gdb::char_vector filename_temp (f.length () + 8);
+  strcpy (filename_temp.data (), f.c_str ());
+  strcat (filename_temp.data () + f.size (), "-XXXXXX");
+  return filename_temp;
 }

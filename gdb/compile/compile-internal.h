@@ -1,5 +1,5 @@
 /* Header file for GDB compile command and supporting functions.
-   Copyright (C) 2014-2018 Free Software Foundation, Inc.
+   Copyright (C) 2014-2019 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -59,7 +59,7 @@ public:
 
   /* Query the type cache for TYPE, returning the compiler's
      type for it in RET.  */
-  bool get_cached_type (struct type *type, gcc_type &ret) const;
+  bool get_cached_type (struct type *type, gcc_type *ret) const;
 
   /* Insert GCC_TYPE into the type cache for TYPE.
 
@@ -163,6 +163,10 @@ protected:
 #define COMPILE_I_PRINT_OUT_ARG "__gdb_out_param"
 #define COMPILE_I_EXPR_VAL "__gdb_expr_val"
 #define COMPILE_I_EXPR_PTR_TYPE "__gdb_expr_ptr_type"
+
+/* A "type" to indicate a NULL type.  */
+
+const gcc_type GCC_TYPE_NONE = (gcc_type) -1;
 
 /* Call gdbarch_register_name (GDBARCH, REGNUM) and convert its result
    to a form suitable for the compiler source.  The register names

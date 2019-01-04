@@ -1,6 +1,6 @@
 /* BSD Kernel Data Access Library (libkvm) interface.
 
-   Copyright (C) 2004-2018 Free Software Foundation, Inc.
+   Copyright (C) 2004-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -24,8 +24,10 @@
 #include "frame.h"
 #include "regcache.h"
 #include "target.h"
+#include "process-stratum-target.h"
 #include "value.h"
-#include "gdbcore.h"		/* for get_exec_file */
+#include "gdbcore.h"
+#include "inferior.h"          /* for get_exec_file */
 #include "gdbthread.h"
 
 #include <fcntl.h>
@@ -70,11 +72,10 @@ static const target_info bsd_kvm_target_info = {
 Optionally specify the filename of a core dump.")
 };
 
-class bsd_kvm_target final : public target_ops
+class bsd_kvm_target final : public process_stratum_target
 {
 public:
-  bsd_kvm_target ()
-  { this->to_stratum = process_stratum; }
+  bsd_kvm_target () = default;
 
   const target_info &info () const override
   { return bsd_kvm_target_info; }

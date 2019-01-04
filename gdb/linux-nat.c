@@ -1,6 +1,6 @@
 /* GNU/Linux native-dependent code common to multiple platforms.
 
-   Copyright (C) 2001-2018 Free Software Foundation, Inc.
+   Copyright (C) 2001-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -425,15 +425,19 @@ num_lwps (int pid)
   return count;
 }
 
-/* Call delete_lwp with prototype compatible for make_cleanup.  */
+/* Deleter for lwp_info unique_ptr specialisation.  */
 
-static void
-delete_lwp_cleanup (void *lp_voidp)
+struct lwp_deleter
 {
-  struct lwp_info *lp = (struct lwp_info *) lp_voidp;
+  void operator() (struct lwp_info *lwp) const
+  {
+    delete_lwp (lwp->ptid);
+  }
+};
 
-  delete_lwp (lp->ptid);
-}
+/* A unique_ptr specialisation for lwp_info.  */
+
+typedef std::unique_ptr<struct lwp_info, lwp_deleter> lwp_info_up;
 
 /* Target hook for follow_fork.  On entry inferior_ptid must be the
    ptid of the followed inferior.  At return, inferior_ptid will be
@@ -466,10 +470,13 @@ linux_nat_target::follow_fork (int follow_child, int detach_fork)
 	{
 	  int child_stop_signal = 0;
 	  bool detach_child = true;
-	  struct cleanup *old_chain = make_cleanup (delete_lwp_cleanup,
-						    child_lp);
 
-	  linux_target->low_prepare_to_resume (child_lp);
+	  /* Move CHILD_LP into a unique_ptr and clear the source pointer
+	     to prevent us doing anything stupid with it.  */
+	  lwp_info_up child_lp_ptr (child_lp);
+	  child_lp = nullptr;
+
+	  linux_target->low_prepare_to_resume (child_lp_ptr.get ());
 
 	  /* When debugging an inferior in an architecture that supports
 	     hardware single stepping on a kernel without commit
@@ -508,8 +515,6 @@ linux_nat_target::follow_fork (int follow_child, int detach_fork)
 		signo = 0;
 	      ptrace (PTRACE_DETACH, child_pid, 0, signo);
 	    }
-
-	  do_cleanups (old_chain);
 	}
       else
 	{
@@ -3171,9 +3176,7 @@ linux_nat_filter_event (int lwpid, int status)
 static void
 check_zombie_leaders (void)
 {
-  struct inferior *inf;
-
-  ALL_INFERIORS (inf)
+  for (inferior *inf : all_inferiors ())
     {
       struct lwp_info *leader_lp;
 
@@ -3678,28 +3681,25 @@ kill_wait_callback (struct lwp_info *lp, void *data)
 static void
 kill_unfollowed_fork_children (struct inferior *inf)
 {
-  struct thread_info *thread;
+  for (thread_info *thread : inf->non_exited_threads ())
+    {
+      struct target_waitstatus *ws = &thread->pending_follow;
 
-  ALL_NON_EXITED_THREADS (thread)
-    if (thread->inf == inf)
-      {
-	struct target_waitstatus *ws = &thread->pending_follow;
+      if (ws->kind == TARGET_WAITKIND_FORKED
+	  || ws->kind == TARGET_WAITKIND_VFORKED)
+	{
+	  ptid_t child_ptid = ws->value.related_pid;
+	  int child_pid = child_ptid.pid ();
+	  int child_lwp = child_ptid.lwp ();
 
-	if (ws->kind == TARGET_WAITKIND_FORKED
-	    || ws->kind == TARGET_WAITKIND_VFORKED)
-	  {
-	    ptid_t child_ptid = ws->value.related_pid;
-	    int child_pid = child_ptid.pid ();
-	    int child_lwp = child_ptid.lwp ();
+	  kill_one_lwp (child_lwp);
+	  kill_wait_one_lwp (child_lwp);
 
-	    kill_one_lwp (child_lwp);
-	    kill_wait_one_lwp (child_lwp);
-
-	    /* Let the arch-specific native code know this process is
-	       gone.  */
-	    linux_target->low_forget_process (child_pid);
-	  }
-      }
+	  /* Let the arch-specific native code know this process is
+	     gone.  */
+	  linux_target->low_forget_process (child_pid);
+	}
+    }
 }
 
 void

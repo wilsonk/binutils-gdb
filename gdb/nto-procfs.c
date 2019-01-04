@@ -1,7 +1,7 @@
 /* Machine independent support for QNX Neutrino /proc (process file system)
    for GDB.  Written by Colin Burgess at QNX Software Systems Limited.
 
-   Copyright (C) 2003-2018 Free Software Foundation, Inc.
+   Copyright (C) 2003-2019 Free Software Foundation, Inc.
 
    Contributed by QNX Software Systems Ltd.
 
@@ -119,9 +119,6 @@ struct nto_procfs_target : public inf_child_target
 
   void interrupt () override;
 
-  bool have_continuable_watchpoint ()
-  { return true; }
-
   const char *extra_thread_info (struct thread_info *) override;
 
   char *pid_to_exec_file (int pid) override;
@@ -146,7 +143,7 @@ class nto_procfs_target_native final : public nto_procfs_target
 static const target_info nto_procfs_target_info = {
   "procfs",
   N_("QNX Neutrino local or remote process"),
-  N_("QNX Neutrino process.  target procfs <node>")
+  N_("QNX Neutrino process.  target procfs NODE")
 };
 
 struct nto_procfs_target_procfs final : public nto_procfs_target
@@ -216,8 +213,6 @@ nto_procfs_target::open (const char *arg, int from_tty)
 
   nto_procfs_node = ND_LOCAL_NODE;
   nodestr = (arg != NULL) ? xstrdup (arg) : NULL;
-
-  init_thread_list ();
 
   if (nodestr)
     {

@@ -1,6 +1,6 @@
 /* Dump-to-file commands, for GDB, the GNU debugger.
 
-   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+   Copyright (C) 2002-2019 Free Software Foundation, Inc.
 
    Contributed by Red Hat.
 
@@ -467,6 +467,9 @@ restore_binary_file (const char *filename, struct callback_data *data)
 {
   gdb_file_up file = gdb_fopen_cloexec (filename, FOPEN_RB);
   long len;
+
+  if (file == NULL)
+    error (_("Failed to open %s: %s"), filename, safe_strerror (errno));
 
   /* Get the file size for reading.  */
   if (fseek (file.get (), 0, SEEK_END) == 0)

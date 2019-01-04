@@ -1,6 +1,6 @@
 \input texinfo
 @setfilename ld.info
-@c Copyright (C) 1991-2018 Free Software Foundation, Inc.
+@c Copyright (C) 1991-2019 Free Software Foundation, Inc.
 @syncodeindex ky cp
 @c man begin INCLUDE
 @include configdoc.texi
@@ -56,7 +56,7 @@ This file documents the @sc{gnu} linker LD
 @end ifset
 version @value{VERSION}.
 
-Copyright @copyright{} 1991-2018 Free Software Foundation, Inc.
+Copyright @copyright{} 1991-2019 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.3
@@ -93,7 +93,7 @@ section entitled ``GNU Free Documentation License''.
 
 @vskip 0pt plus 1filll
 @c man begin COPYRIGHT
-Copyright @copyright{} 1991-2018 Free Software Foundation, Inc.
+Copyright @copyright{} 1991-2019 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.3
@@ -759,6 +759,28 @@ option is used:
 
 See @ref{Expressions} for more information about expressions in linker
 scripts.
+
+@item How GNU properties are merged.
+
+When linker merges input .note.gnu.property sections into one output
+.note.gnu.property section, some properties are removed or updated,
+which are reported in the link map as
+
+@smallexample
+Removed property 0xc0000002 to merge foo.o (0x1) and bar.o (not found)
+@end smallexample
+
+It indicates that property 0xc0000002 is removed from output when
+merging properties in  @file{foo.o}, whose property 0xc0000002 value
+is 0x1, and @file{bar.o}, which doesn't have property 0xc0000002.
+
+@smallexample
+Updated property 0xc0000002 (0x1) to merge foo.o (0x1) and bar.o (0x1)
+@end smallexample
+
+It indicates that property 0xc0010001 value is updated to 0x1 in output
+when merging properties in  @file{foo.o}, whose 0xc0010001 property value
+is 0x1, and @file{bar.o}, whose 0xc0010001 property value is 0x1.
 @end itemize
 
 @kindex -n
@@ -1605,12 +1627,14 @@ referenced by dynamic objects.  Note that when building shared
 libraries, the linker must assume that any visible symbol is
 referenced.  Once this initial set of sections has been determined,
 the linker recursively marks as used any section referenced by their
-relocations.  See @samp{--entry} and @samp{--undefined}.
+relocations.  See @samp{--entry}, @samp{--undefined}, and
+@samp{--gc-keep-exported}.
 
 This option can be set when doing a partial link (enabled with option
 @samp{-r}).  In this case the root of symbols kept must be explicitly
-specified either by an @samp{--entry} or @samp{--undefined} option or by
-a @code{ENTRY} command in the linker script.
+specified either by one of the options @samp{--entry},
+@samp{--undefined}, or @samp{--gc-keep-exported} or by a @code{ENTRY}
+command in the linker script.
 
 @kindex --print-gc-sections
 @kindex --no-print-gc-sections
@@ -2408,7 +2432,8 @@ Set the type of linker's hash table(s).  @var{style} can be either
 @code{sysv} for classic ELF @code{.hash} section, @code{gnu} for
 new style GNU @code{.gnu.hash} section or @code{both} for both
 the classic ELF @code{.hash} and new style GNU @code{.gnu.hash}
-hash tables.  The default is @code{sysv}.
+hash tables.  The default depends upon how the linker was configured,
+but for most Linux based systems it will be @code{both}.
 
 @kindex --compress-debug-sections=none
 @kindex --compress-debug-sections=zlib
@@ -3406,7 +3431,7 @@ the @samp{-e} @var{entry} command-line option;
 the @code{ENTRY(@var{symbol})} command in a linker script;
 @item
 the value of a target specific symbol, if it is defined;  For many
-targets this is @code{start}, but PE and BeOS based systems for example
+targets this is @code{start}, but PE- and BeOS-based systems for example
 check a list of possible entry symbols, matching the first one found.
 @item
 the address of the first byte of the @samp{.text} section, if present;
@@ -5354,11 +5379,14 @@ Same as @samp{I}
 Invert the sense of any of the attributes that follow
 @end table
 
-If a unmapped section matches any of the listed attributes other than
+If an unmapped section matches any of the listed attributes other than
 @samp{!}, it will be placed in the memory region.  The @samp{!}
-attribute reverses this test, so that an unmapped section will be placed
-in the memory region only if it does not match any of the listed
-attributes.
+attribute reverses the test for the characters that follow, so that an
+unmapped section will be placed in the memory region only if it does
+not match any of the attributes listed afterwards.  Thus an attribute
+string of @samp{RW!X} will match any unmapped section that has either
+or both of the @samp{R} and @samp{W} attributes, but only as long as
+the section does not also have the @samp{X} attribute.
 
 @kindex ORIGIN =
 @kindex o =

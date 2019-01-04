@@ -1,6 +1,6 @@
 /* Support for printing C++ values for GDB, the GNU debugger.
 
-   Copyright (C) 1986-2018 Free Software Foundation, Inc.
+   Copyright (C) 1986-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -378,7 +378,7 @@ cp_print_value_fields (struct type *type, struct type *real_type,
 
 	  if (last_set_recurse != recurse)
 	    {
-	      size_t obstack_final_size =
+	      obstack_final_size =
 		obstack_object_size (&dont_print_stat_array_obstack);
 	      
 	      if (obstack_final_size > stat_array_obstack_initial_size)

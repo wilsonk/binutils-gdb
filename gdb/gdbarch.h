@@ -3,7 +3,7 @@
 
 /* Dynamic architecture support for GDB, the GNU debugger.
 
-   Copyright (C) 1998-2018 Free Software Foundation, Inc.
+   Copyright (C) 1998-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -101,6 +101,29 @@ typedef int (iterate_over_objfiles_in_search_order_cb_ftype)
 typedef void (iterate_over_regset_sections_cb)
   (const char *sect_name, int supply_size, int collect_size,
    const struct regset *regset, const char *human_name, void *cb_data);
+
+/* For a function call, does the function return a value using a
+   normal value return or a structure return - passing a hidden
+   argument pointing to storage.  For the latter, there are two
+   cases: language-mandated structure return and target ABI
+   structure return.  */
+
+enum function_call_return_method
+{
+  /* Standard value return.  */
+  return_method_normal = 0,
+
+  /* Language ABI structure return.  This is handled
+     by passing the return location as the first parameter to
+     the function, even preceding "this".  */
+  return_method_hidden_param,
+
+  /* Target ABI struct return.  This is target-specific; for instance,
+     on ia64 the first argument is passed in out0 but the hidden
+     structure return pointer would normally be passed in r8.  */
+  return_method_struct,
+};
+
 
 
 /* The following are pre-initialized by GDBARCH.  */
@@ -380,7 +403,14 @@ typedef struct type * (gdbarch_register_type_ftype) (struct gdbarch *gdbarch, in
 extern struct type * gdbarch_register_type (struct gdbarch *gdbarch, int reg_nr);
 extern void set_gdbarch_register_type (struct gdbarch *gdbarch, gdbarch_register_type_ftype *register_type);
 
-extern int gdbarch_dummy_id_p (struct gdbarch *gdbarch);
+/* Generate a dummy frame_id for THIS_FRAME assuming that the frame is
+   a dummy frame.  A dummy frame is created before an inferior call,
+   the frame_id returned here must match the frame_id that was built
+   for the inferior call.  Usually this means the returned frame_id's
+   stack address should match the address returned by
+   gdbarch_push_dummy_call, and the returned frame_id's code address
+   should match the address at which the breakpoint was set in the dummy
+   frame. */
 
 typedef struct frame_id (gdbarch_dummy_id_ftype) (struct gdbarch *gdbarch, struct frame_info *this_frame);
 extern struct frame_id gdbarch_dummy_id (struct gdbarch *gdbarch, struct frame_info *this_frame);
@@ -394,8 +424,8 @@ extern void set_gdbarch_deprecated_fp_regnum (struct gdbarch *gdbarch, int depre
 
 extern int gdbarch_push_dummy_call_p (struct gdbarch *gdbarch);
 
-typedef CORE_ADDR (gdbarch_push_dummy_call_ftype) (struct gdbarch *gdbarch, struct value *function, struct regcache *regcache, CORE_ADDR bp_addr, int nargs, struct value **args, CORE_ADDR sp, int struct_return, CORE_ADDR struct_addr);
-extern CORE_ADDR gdbarch_push_dummy_call (struct gdbarch *gdbarch, struct value *function, struct regcache *regcache, CORE_ADDR bp_addr, int nargs, struct value **args, CORE_ADDR sp, int struct_return, CORE_ADDR struct_addr);
+typedef CORE_ADDR (gdbarch_push_dummy_call_ftype) (struct gdbarch *gdbarch, struct value *function, struct regcache *regcache, CORE_ADDR bp_addr, int nargs, struct value **args, CORE_ADDR sp, function_call_return_method return_method, CORE_ADDR struct_addr);
+extern CORE_ADDR gdbarch_push_dummy_call (struct gdbarch *gdbarch, struct value *function, struct regcache *regcache, CORE_ADDR bp_addr, int nargs, struct value **args, CORE_ADDR sp, function_call_return_method return_method, CORE_ADDR struct_addr);
 extern void set_gdbarch_push_dummy_call (struct gdbarch *gdbarch, gdbarch_push_dummy_call_ftype *push_dummy_call);
 
 extern int gdbarch_call_dummy_location (struct gdbarch *gdbarch);
@@ -622,13 +652,9 @@ extern void set_gdbarch_fetch_tls_load_module_address (struct gdbarch *gdbarch, 
 extern CORE_ADDR gdbarch_frame_args_skip (struct gdbarch *gdbarch);
 extern void set_gdbarch_frame_args_skip (struct gdbarch *gdbarch, CORE_ADDR frame_args_skip);
 
-extern int gdbarch_unwind_pc_p (struct gdbarch *gdbarch);
-
 typedef CORE_ADDR (gdbarch_unwind_pc_ftype) (struct gdbarch *gdbarch, struct frame_info *next_frame);
 extern CORE_ADDR gdbarch_unwind_pc (struct gdbarch *gdbarch, struct frame_info *next_frame);
 extern void set_gdbarch_unwind_pc (struct gdbarch *gdbarch, gdbarch_unwind_pc_ftype *unwind_pc);
-
-extern int gdbarch_unwind_sp_p (struct gdbarch *gdbarch);
 
 typedef CORE_ADDR (gdbarch_unwind_sp_ftype) (struct gdbarch *gdbarch, struct frame_info *next_frame);
 extern CORE_ADDR gdbarch_unwind_sp (struct gdbarch *gdbarch, struct frame_info *next_frame);
@@ -817,6 +843,9 @@ extern void set_gdbarch_adjust_dwarf2_line (struct gdbarch *gdbarch, gdbarch_adj
 
 extern int gdbarch_cannot_step_breakpoint (struct gdbarch *gdbarch);
 extern void set_gdbarch_cannot_step_breakpoint (struct gdbarch *gdbarch, int cannot_step_breakpoint);
+
+/* See comment in target.h about continuable, steppable and
+   non-steppable watchpoints. */
 
 extern int gdbarch_have_nonsteppable_watchpoint (struct gdbarch *gdbarch);
 extern void set_gdbarch_have_nonsteppable_watchpoint (struct gdbarch *gdbarch, int have_nonsteppable_watchpoint);
@@ -1566,9 +1595,6 @@ typedef ULONGEST (gdbarch_type_align_ftype) (struct gdbarch *gdbarch, struct typ
 extern ULONGEST gdbarch_type_align (struct gdbarch *gdbarch, struct type *type);
 extern void set_gdbarch_type_align (struct gdbarch *gdbarch, gdbarch_type_align_ftype *type_align);
 
-/* Definition for an unknown syscall, used basically in error-cases.  */
-#define UNKNOWN_SYSCALL (-1)
-
 extern struct gdbarch_tdep *gdbarch_tdep (struct gdbarch *gdbarch);
 
 
@@ -1802,5 +1828,13 @@ extern void initialize_current_architecture (void);
 extern unsigned int gdbarch_debug;
 
 extern void gdbarch_dump (struct gdbarch *gdbarch, struct ui_file *file);
+
+/* Return the number of cooked registers (raw + pseudo) for ARCH.  */
+
+static inline int
+gdbarch_num_cooked_regs (gdbarch *arch)
+{
+  return gdbarch_num_regs (arch) + gdbarch_num_pseudo_regs (arch);
+}
 
 #endif

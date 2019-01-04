@@ -1,7 +1,7 @@
 /* GNU/Linux/AArch64 specific low level interface, for the remote server for
    GDB.
 
-   Copyright (C) 2009-2018 Free Software Foundation, Inc.
+   Copyright (C) 2009-2019 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GDB.
@@ -82,22 +82,6 @@ is_sve_tdesc (void)
   struct regcache *regcache = get_thread_regcache (current_thread, 0);
 
   return regcache->tdesc->reg_defs.size () == AARCH64_SVE_NUM_REGS;
-}
-
-/* Implementation of linux_target_ops method "cannot_store_register".  */
-
-static int
-aarch64_cannot_store_register (int regno)
-{
-  return regno >= AARCH64_NUM_REGS;
-}
-
-/* Implementation of linux_target_ops method "cannot_fetch_register".  */
-
-static int
-aarch64_cannot_fetch_register (int regno)
-{
-  return regno >= AARCH64_NUM_REGS;
 }
 
 static void
@@ -3041,8 +3025,8 @@ struct linux_target_ops the_low_target =
 {
   aarch64_arch_setup,
   aarch64_regs_info,
-  aarch64_cannot_fetch_register,
-  aarch64_cannot_store_register,
+  NULL, /* cannot_fetch_register */
+  NULL, /* cannot_store_register */
   NULL, /* fetch_register */
   aarch64_get_pc,
   aarch64_set_pc,

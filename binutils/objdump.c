@@ -1,5 +1,5 @@
 /* objdump.c -- dump information about an object file.
-   Copyright (C) 1990-2018 Free Software Foundation, Inc.
+   Copyright (C) 1990-2019 Free Software Foundation, Inc.
 
    This file is part of GNU Binutils.
 
@@ -118,6 +118,9 @@ static const char *prefix;		/* --prefix */
 static int prefix_strip;		/* --prefix-strip */
 static size_t prefix_length;
 static bfd_boolean unwind_inlines;	/* --inlines.  */
+static const char * disasm_sym;		/* Disassembly start symbol.  */
+
+static int demangle_flags = DMGL_ANSI | DMGL_PARAMS;
 
 /* A structure to record the sections mentioned in -j switches.  */
 struct only
@@ -145,6 +148,7 @@ struct objdump_disasm_info
   long               dynrelcount;
   disassembler_ftype disassemble_fn;
   arelent *          reloc;
+  const char *       symbol;
 };
 
 /* Architecture to disassemble for, or default if NULL.  */
@@ -209,6 +213,7 @@ usage (FILE *stream, int status)
   -x, --all-headers        Display the contents of all headers\n\
   -d, --disassemble        Display assembler contents of executable sections\n\
   -D, --disassemble-all    Display assembler contents of all sections\n\
+      --disassemble=<sym>  Display assembler contents from <sym>\n\
   -S, --source             Intermix source code with disassembly\n\
   -s, --full-contents      Display the full contents of all sections requested\n\
   -g, --debugging          Display debug information in object file\n\
@@ -249,6 +254,8 @@ usage (FILE *stream, int status)
                                   The STYLE, if specified, can be `auto', `gnu',\n\
                                   `lucid', `arm', `hp', `edg', `gnu-v3', `java'\n\
                                   or `gnat'\n\
+      --recurse-limit            Enable a limit on recursion whilst demangling.  [Default]\n\
+      --no-recurse-limit         Disable a limit on recursion whilst demangling\n\
   -w, --wide                     Format output for more than 80 columns\n\
   -z, --disassemble-zeroes       Do not skip blocks of zeroes when disassembling\n\
       --start-address=ADDR       Only process data whose address is >= ADDR\n\
@@ -299,6 +306,8 @@ enum option_values
     OPTION_DWARF_DEPTH,
     OPTION_DWARF_CHECK,
     OPTION_DWARF_START,
+    OPTION_RECURSE_LIMIT,
+    OPTION_NO_RECURSE_LIMIT,
     OPTION_INLINES
   };
 
@@ -313,7 +322,7 @@ static struct option long_options[]=
   {"debugging", no_argument, NULL, 'g'},
   {"debugging-tags", no_argument, NULL, 'e'},
   {"demangle", optional_argument, NULL, 'C'},
-  {"disassemble", no_argument, NULL, 'd'},
+  {"disassemble", optional_argument, NULL, 'd'},
   {"disassemble-all", no_argument, NULL, 'D'},
   {"disassembler-options", required_argument, NULL, 'M'},
   {"disassemble-zeroes", no_argument, NULL, 'z'},
@@ -330,6 +339,10 @@ static struct option long_options[]=
   {"line-numbers", no_argument, NULL, 'l'},
   {"no-show-raw-insn", no_argument, &show_raw_insn, -1},
   {"prefix-addresses", no_argument, &prefix_addresses, 1},
+  {"recurse-limit", no_argument, NULL, OPTION_RECURSE_LIMIT},
+  {"recursion-limit", no_argument, NULL, OPTION_RECURSE_LIMIT},
+  {"no-recurse-limit", no_argument, NULL, OPTION_NO_RECURSE_LIMIT},
+  {"no-recursion-limit", no_argument, NULL, OPTION_NO_RECURSE_LIMIT},
   {"reloc", no_argument, NULL, 'r'},
   {"section", required_argument, NULL, 'j'},
   {"section-headers", no_argument, NULL, 'h'},
@@ -881,7 +894,7 @@ objdump_print_symname (bfd *abfd, struct disassemble_info *inf,
   if (do_demangle && name[0] != '\0')
     {
       /* Demangle the name.  */
-      alloc = bfd_demangle (abfd, name, DMGL_ANSI | DMGL_PARAMS);
+      alloc = bfd_demangle (abfd, name, demangle_flags);
       if (alloc != NULL)
 	name = alloc;
     }
@@ -2253,6 +2266,7 @@ disassemble_section (bfd *abfd, asection *section, void *inf)
       asymbol *nextsym;
       bfd_vma nextstop_offset;
       bfd_boolean insns;
+      bfd_boolean do_print = TRUE;
 
       addr = section->vma + addr_offset;
       addr = ((addr & ((sign_adjust << 1) - 1)) ^ sign_adjust) - sign_adjust;
@@ -2278,7 +2292,23 @@ disassemble_section (bfd *abfd, asection *section, void *inf)
 	  pinfo->symtab_pos = -1;
 	}
 
-      if (! prefix_addresses)
+      if (sym && paux->symbol)
+	{
+	  const char *name = bfd_asymbol_name (sym);
+	  char *alloc = NULL;
+
+	  if (do_demangle && name[0] != '\0')
+	    {
+	      /* Demangle the name.  */
+	      alloc = bfd_demangle (abfd, name, demangle_flags);
+	      if (alloc != NULL)
+		name = alloc;
+	    }
+	  do_print = streq (name, paux->symbol);
+	  free (alloc);
+	}
+
+      if (! prefix_addresses && do_print)
 	{
 	  pinfo->fprintf_func (pinfo->stream, "\n");
 	  objdump_print_addr_with_sym (abfd, section, sym, addr,
@@ -2339,9 +2369,14 @@ disassemble_section (bfd *abfd, asection *section, void *inf)
       else
 	insns = FALSE;
 
-      disassemble_bytes (pinfo, paux->disassemble_fn, insns, data,
-			 addr_offset, nextstop_offset,
-			 rel_offset, &rel_pp, rel_ppend);
+      if (do_print)
+	{
+	  disassemble_bytes (pinfo, paux->disassemble_fn, insns, data,
+			     addr_offset, nextstop_offset,
+			     rel_offset, &rel_pp, rel_ppend);
+	  if (paux->symbol)
+	    break;
+	}
 
       addr_offset = nextstop_offset;
       sym = nextsym;
@@ -2394,6 +2429,7 @@ disassemble_data (bfd *abfd)
   aux.dynrelbuf = NULL;
   aux.dynrelcount = 0;
   aux.reloc = NULL;
+  aux.symbol = disasm_sym;
 
   disasm_info.print_address_func = objdump_print_address;
   disasm_info.symbol_at_address_func = objdump_symbol_at_address;
@@ -2757,6 +2793,12 @@ dump_dwarf (bfd *abfd)
 
     case bfd_arch_riscv:
       init_dwarf_regnames_riscv ();
+      break;
+
+    case bfd_arch_s12z:
+      /* S12Z has a 24 bit address space.  But the only known
+	 producer of dwarf_info encodes addresses into 32 bits.  */
+      eh_addr_size = 4;
       break;
 
     default:
@@ -3236,7 +3278,7 @@ dump_symbols (bfd *abfd ATTRIBUTE_UNUSED, bfd_boolean dynamic)
 	      /* If we want to demangle the name, we demangle it
 		 here, and temporarily clobber it while calling
 		 bfd_print_symbol.  FIXME: This is a gross hack.  */
-	      alloc = bfd_demangle (cur_bfd, name, DMGL_ANSI | DMGL_PARAMS);
+	      alloc = bfd_demangle (cur_bfd, name, demangle_flags);
 	      if (alloc != NULL)
 		(*current)->name = alloc;
 	      bfd_print_symbol (cur_bfd, stdout, *current,
@@ -3457,7 +3499,12 @@ dump_relocs_in_section (bfd *abfd,
     }
 
   if ((bfd_get_file_flags (abfd) & (BFD_IN_MEMORY | BFD_LINKER_CREATED)) == 0
-      && (((ufile_ptr) relsize > bfd_get_file_size (abfd))
+      && (/* Check that the size of the relocs is reasonable.  Note that some
+	     file formats, eg aout, can have relocs whose internal size is
+	     larger than their external size, thus we check the size divided
+	     by four against the file size.  See PR 23931 for an example of
+	     this.  */
+	  ((ufile_ptr) (relsize / 4) > bfd_get_file_size (abfd))
 	  /* Also check the section's reloc count since if this is negative
 	     (or very large) the computation in bfd_get_reloc_upper_bound
 	     may have resulted in returning a small, positive integer.
@@ -3468,7 +3515,7 @@ dump_relocs_in_section (bfd *abfd,
 	     section than there are bytes in that section.  */
 	  || (section->reloc_count > bfd_get_file_size (abfd))))
     {
-      printf (" (too many: 0x%x)\n", section->reloc_count);
+      printf (" (too many: %#x relocs)\n", section->reloc_count);
       bfd_set_error (bfd_error_file_truncated);
       bfd_fatal (bfd_get_filename (abfd));
     }
@@ -3836,7 +3883,8 @@ main (int argc, char **argv)
 
   expandargv (&argc, &argv);
 
-  bfd_init ();
+  if (bfd_init () != BFD_INIT_MAGIC)
+    fatal (_("fatal error: libbfd ABI mismatch"));
   set_default_bfd_target ();
 
   while ((c = getopt_long (argc, argv,
@@ -3888,6 +3936,12 @@ main (int argc, char **argv)
 
 	      cplus_demangle_set_style (style);
 	    }
+	  break;
+	case OPTION_RECURSE_LIMIT:
+	  demangle_flags &= ~ DMGL_NO_RECURSE_LIMIT;
+	  break;
+	case OPTION_NO_RECURSE_LIMIT:
+	  demangle_flags |= DMGL_NO_RECURSE_LIMIT;
 	  break;
 	case 'w':
 	  do_wide = wide_output = TRUE;
@@ -3988,6 +4042,7 @@ main (int argc, char **argv)
 	case 'd':
 	  disassemble = TRUE;
 	  seenflag = TRUE;
+	  disasm_sym = optarg;
 	  break;
 	case 'z':
 	  disassemble_zeroes = TRUE;

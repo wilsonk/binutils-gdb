@@ -1,7 +1,7 @@
 /* Target-dependent code for the Texas Instruments MSP430 for GDB, the
    GNU debugger.
 
-   Copyright (C) 2012-2018 Free Software Foundation, Inc.
+   Copyright (C) 2012-2019 Free Software Foundation, Inc.
 
    Contributed by Red Hat, Inc.
 
@@ -669,7 +669,8 @@ static CORE_ADDR
 msp430_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 			struct regcache *regcache, CORE_ADDR bp_addr,
 			int nargs, struct value **args, CORE_ADDR sp,
-			int struct_return, CORE_ADDR struct_addr)
+			function_call_return_method return_method,
+			CORE_ADDR struct_addr)
 {
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
   int write_pass;
@@ -699,7 +700,7 @@ msp430_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 	sp = align_down (sp - sp_off, 4);
       sp_off = 0;
 
-      if (struct_return)
+      if (return_method == return_method_struct)
 	{
 	  if (write_pass)
 	    regcache_cooked_write_unsigned (regcache, arg_reg, struct_addr);
@@ -715,6 +716,7 @@ msp430_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 	  ULONGEST arg_size = TYPE_LENGTH (arg_type);
 	  int offset;
 	  int current_arg_on_stack;
+	  gdb_byte struct_addr_buf[4];
 
 	  current_arg_on_stack = 0;
 
@@ -722,11 +724,9 @@ msp430_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 	      || TYPE_CODE (arg_type) == TYPE_CODE_UNION)
 	    {
 	      /* Aggregates of any size are passed by reference.  */
-	      gdb_byte struct_addr[4];
-
-	      store_unsigned_integer (struct_addr, 4, byte_order,
+	      store_unsigned_integer (struct_addr_buf, 4, byte_order,
 				      value_address (arg));
-	      arg_bits = struct_addr;
+	      arg_bits = struct_addr_buf;
 	      arg_size = (code_model == MSP_LARGE_CODE_MODEL) ? 4 : 2;
 	    }
 	  else

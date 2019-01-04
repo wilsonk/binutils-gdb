@@ -1,5 +1,5 @@
 /* BFD back-end for IBM RS/6000 "XCOFF64" files.
-   Copyright (C) 2000-2018 Free Software Foundation, Inc.
+   Copyright (C) 2000-2019 Free Software Foundation, Inc.
    Written Clinton Popetz.
    Contributed by Cygnus Support.
 
@@ -278,7 +278,6 @@ extern int rs6000coff_core_file_failing_signal
 #define bfd_pe_print_pdata	NULL
 #endif
 
-#include <stdint.h>
 #include "coffcode.h"
 
 /* For XCOFF64, the effective width of symndx changes depending on
@@ -1305,10 +1304,6 @@ xcoff64_ppc_relocate_section (bfd *output_bfd,
 	 which we don't check for.  We must either check at every single
 	 operation, which would be tedious, or we must do the computations
 	 in a type larger than bfd_vma, which would be inefficient.  */
-
-      if ((unsigned int) howto.complain_on_overflow
-	  >= XCOFF_MAX_COMPLAIN_OVERFLOW)
-	abort ();
 
       if (((*xcoff_complain_overflow[howto.complain_on_overflow])
 	   (input_bfd, value_to_relocate, relocation, &howto)))

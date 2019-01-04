@@ -1,5 +1,5 @@
 /* BFD back-end for Intel Hex objects.
-   Copyright (C) 1995-2018 Free Software Foundation, Inc.
+   Copyright (C) 1995-2019 Free Software Foundation, Inc.
    Written by Ian Lance Taylor of Cygnus Support <ian@cygnus.com>.
 
    This file is part of BFD, the Binary File Descriptor library.
@@ -775,8 +775,26 @@ ihex_write_object_contents (bfd *abfd)
       bfd_vma where;
       bfd_byte *p;
       bfd_size_type count;
+      const bfd_vma sign = (bfd_vma) 0xffffffff80000000ULL;
+      const bfd_vma top = (bfd_vma) 0xffffffff00000000ULL;
 
       where = l->where;
+
+      /* Check for unacceptable addresses sign extension.
+	 See PR 23699 for more details.  */
+      if ((where & sign) == top
+	  || ((where & top) != 0 && (where & top) != top))
+       {
+         _bfd_error_handler
+           /* xgettext:c-format */
+           (_("%pB 64-bit address %#" PRIx64 " out of range for Intel Hex file"),
+            abfd, (uint64_t) where);
+         bfd_set_error (bfd_error_bad_value);
+         return FALSE;
+       }
+
+      where &= 0xffffffff;
+
       p = l->data;
       count = l->size;
 

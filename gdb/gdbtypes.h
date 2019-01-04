@@ -1,7 +1,7 @@
 
 /* Internal type definitions for GDB.
 
-   Copyright (C) 1992-2018 Free Software Foundation, Inc.
+   Copyright (C) 1992-2019 Free Software Foundation, Inc.
 
    Contributed by Cygnus Support, using pieces from other GDB modules.
 
@@ -45,10 +45,12 @@
  */
 
 #include "hashtab.h"
+#include "common/array-view.h"
 #include "common/offset-type.h"
 #include "common/enum-flags.h"
 #include "common/underlying.h"
 #include "common/print-utils.h"
+#include "gdbarch.h"
 
 /* Forward declarations for prototypes.  */
 struct field;
@@ -192,7 +194,7 @@ enum type_code
 /* * Some bits for the type's instance_flags word.  See the macros
    below for documentation on each bit.  */
 
-enum type_instance_flag_value
+enum type_instance_flag_value : unsigned
 {
   TYPE_INSTANCE_FLAG_CONST = (1 << 0),
   TYPE_INSTANCE_FLAG_VOLATILE = (1 << 1),
@@ -1093,13 +1095,9 @@ struct rank
     short subrank;
   };
 
-/* * Struct used for ranking a function for overload resolution.  */
+/* * Used for ranking a function for overload resolution.  */
 
-struct badness_vector
-  {
-    int length;
-    struct rank *rank;
-  };
+typedef std::vector<rank> badness_vector;
 
 /* * GNAT Ada-specific information for various Ada types.  */
 
@@ -1611,6 +1609,8 @@ struct builtin_type
   struct type *builtin_uint8;
   struct type *builtin_int16;
   struct type *builtin_uint16;
+  struct type *builtin_int24;
+  struct type *builtin_uint24;
   struct type *builtin_int32;
   struct type *builtin_uint32;
   struct type *builtin_int64;
@@ -1715,26 +1715,30 @@ extern const struct floatformat *floatformats_vax_d[BFD_ENDIAN_UNKNOWN];
 extern const struct floatformat *floatformats_ibm_long_double[BFD_ENDIAN_UNKNOWN];
 
 
-/* * Allocate space for storing data associated with a particular
+/* Allocate space for storing data associated with a particular
    type.  We ensure that the space is allocated using the same
    mechanism that was used to allocate the space for the type
    structure itself.  I.e.  if the type is on an objfile's
    objfile_obstack, then the space for data associated with that type
-   will also be allocated on the objfile_obstack.  If the type is not
-   associated with any particular objfile (such as builtin types),
-   then the data space will be allocated with xmalloc, the same as for
-   the type structure.  */
+   will also be allocated on the objfile_obstack.  If the type is
+   associated with a gdbarch, then the space for data associated with that
+   type will also be allocated on the gdbarch_obstack.
 
-#define TYPE_ALLOC(t,size)  \
-   (TYPE_OBJFILE_OWNED (t) \
-    ? obstack_alloc (&TYPE_OBJFILE (t) -> objfile_obstack, size) \
-    : xmalloc (size))
+   If a type is not associated with neither an objfile or a gdbarch then
+   you should not use this macro to allocate space for data, instead you
+   should call xmalloc directly, and ensure the memory is correctly freed
+   when it is no longer needed.  */
 
-#define TYPE_ZALLOC(t,size)  \
-   (TYPE_OBJFILE_OWNED (t) \
-    ? memset (obstack_alloc (&TYPE_OBJFILE (t)->objfile_obstack, size),  \
-	      0, size)  \
-    : xzalloc (size))
+#define TYPE_ALLOC(t,size)                                              \
+  (obstack_alloc ((TYPE_OBJFILE_OWNED (t)                               \
+                   ? &TYPE_OBJFILE (t)->objfile_obstack                 \
+                   : gdbarch_obstack (TYPE_OWNER (t).gdbarch)),         \
+                  size))
+
+
+/* See comment on TYPE_ALLOC.  */
+
+#define TYPE_ZALLOC(t,size) (memset (TYPE_ALLOC (t, size), 0, size))
 
 /* Use alloc_type to allocate a type owned by an objfile.  Use
    alloc_type_arch to allocate a type owned by an architecture.  Use
@@ -1975,8 +1979,6 @@ extern int is_unique_ancestor (struct type *, struct value *);
 
 /* Overload resolution */
 
-#define LENGTH_MATCH(bv) ((bv)->rank[0])
-
 /* * Badness if parameter list length doesn't match arg list length.  */
 extern const struct rank LENGTH_MISMATCH_BADNESS;
 
@@ -2035,10 +2037,11 @@ extern const struct rank NS_INTEGER_POINTER_CONVERSION_BADNESS;
 extern struct rank sum_ranks (struct rank a, struct rank b);
 extern int compare_ranks (struct rank a, struct rank b);
 
-extern int compare_badness (struct badness_vector *, struct badness_vector *);
+extern int compare_badness (const badness_vector &,
+			    const badness_vector &);
 
-extern struct badness_vector *rank_function (struct type **, int,
-					     struct value **, int);
+extern badness_vector rank_function (gdb::array_view<type *> parms,
+				     gdb::array_view<value *> args);
 
 extern struct rank rank_one_type (struct type *, struct type *,
 				  struct value *);

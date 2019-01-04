@@ -1,6 +1,6 @@
 /* Print values for GDB, the GNU debugger.
 
-   Copyright (C) 1986-2018 Free Software Foundation, Inc.
+   Copyright (C) 1986-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -1604,6 +1604,7 @@ maybe_negate_by_bytes (const gdb_byte *bytes, unsigned len,
 		       gdb::byte_vector *out_vec)
 {
   gdb_byte sign_byte;
+  gdb_assert (len > 0);
   if (byte_order == BFD_ENDIAN_BIG)
     sign_byte = bytes[0];
   else
@@ -2360,13 +2361,13 @@ generic_emit_char (int c, struct type *type, struct ui_file *stream,
 {
   enum bfd_endian byte_order
     = gdbarch_byte_order (get_type_arch (type));
-  gdb_byte *buf;
+  gdb_byte *c_buf;
   int need_escape = 0;
 
-  buf = (gdb_byte *) alloca (TYPE_LENGTH (type));
-  pack_long (buf, type, c);
+  c_buf = (gdb_byte *) alloca (TYPE_LENGTH (type));
+  pack_long (c_buf, type, c);
 
-  wchar_iterator iter (buf, TYPE_LENGTH (type), encoding, TYPE_LENGTH (type));
+  wchar_iterator iter (c_buf, TYPE_LENGTH (type), encoding, TYPE_LENGTH (type));
 
   /* This holds the printable form of the wchar_t data.  */
   auto_obstack wchar_buf;

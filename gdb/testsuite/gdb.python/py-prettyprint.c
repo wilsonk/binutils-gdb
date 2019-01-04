@@ -1,6 +1,6 @@
 /* This testcase is part of GDB, the GNU debugger.
 
-   Copyright 2008-2018 Free Software Foundation, Inc.
+   Copyright 2008-2019 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -271,10 +271,12 @@ bug_14741()
    when looking for a printer.  */
 typedef int int_type;
 typedef int_type int_type2;
+typedef int_type int_type3;
 
 int an_int = -1;
 int_type an_int_type = 1;
 int_type2 an_int_type2 = 2;
+int_type3 an_int_type3 = 3;
 
 int
 main ()

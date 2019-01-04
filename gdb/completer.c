@@ -1,5 +1,5 @@
 /* Line completion stuff for GDB, the GNU debugger.
-   Copyright (C) 2000-2018 Free Software Foundation, Inc.
+   Copyright (C) 2000-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -2032,7 +2032,7 @@ completion_tracker::build_completion_result (const char *text,
       /* We don't rely on readline appending the quote char as
 	 delimiter as then readline wouldn't append the ' ' after the
 	 completion.  */
-      char buf[2] = { quote_char () };
+      char buf[2] = { (char) quote_char () };
 
       match_list[0] = reconcat (match_list[0], match_list[0],
 				buf, (char *) NULL);

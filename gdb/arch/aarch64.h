@@ -1,6 +1,6 @@
 /* Common target-dependent functionality for AArch64.
 
-   Copyright (C) 2017-2018 Free Software Foundation, Inc.
+   Copyright (C) 2017-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -49,13 +49,21 @@ enum aarch64_regnum
   AARCH64_SVE_P15_REGNUM = AARCH64_SVE_P0_REGNUM + 15,	/* Last SVE predicate
 							   register.  */
   AARCH64_SVE_FFR_REGNUM,	/* SVE First Fault Register.  */
-  AARCH64_SVE_VG_REGNUM,	/* SVE Vector Gradient.  */
+  AARCH64_SVE_VG_REGNUM,	/* SVE Vector Granule.  */
 
   /* Other useful registers.  */
   AARCH64_LAST_X_ARG_REGNUM = AARCH64_X0_REGNUM + 7,
   AARCH64_STRUCT_RETURN_REGNUM = AARCH64_X0_REGNUM + 8,
   AARCH64_LAST_V_ARG_REGNUM = AARCH64_V0_REGNUM + 7
 };
+
+/* Pseudo register base numbers.  */
+#define AARCH64_Q0_REGNUM 0
+#define AARCH64_D0_REGNUM (AARCH64_Q0_REGNUM + AARCH64_D_REGISTER_COUNT)
+#define AARCH64_S0_REGNUM (AARCH64_D0_REGNUM + 32)
+#define AARCH64_H0_REGNUM (AARCH64_S0_REGNUM + 32)
+#define AARCH64_B0_REGNUM (AARCH64_H0_REGNUM + 32)
+#define AARCH64_SVE_V0_REGNUM (AARCH64_B0_REGNUM + 32)
 
 #define AARCH64_X_REGS_NUM 31
 #define AARCH64_V_REGS_NUM 32
@@ -71,7 +79,7 @@ enum aarch64_regnum
 	The number of bytes in an SVE Z register.
    VQ : Vector Quotient.
 	The number of 128bit chunks in an SVE Z register.
-   VG : Vector Gradient.
+   VG : Vector Granule.
 	The number of 64bit chunks in an SVE Z register.  */
 
 #define sve_vg_from_vl(vl)	((vl) / 8)

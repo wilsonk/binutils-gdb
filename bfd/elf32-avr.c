@@ -1,5 +1,5 @@
 /* AVR-specific support for 32-bit ELF
-   Copyright (C) 1999-2018 Free Software Foundation, Inc.
+   Copyright (C) 1999-2019 Free Software Foundation, Inc.
    Contributed by Denis Chertykov <denisc@overta.ru>
 
    This file is part of BFD, the Binary File Descriptor library.
@@ -25,7 +25,6 @@
 #include "elf-bfd.h"
 #include "elf/avr.h"
 #include "elf32-avr.h"
-#include "bfd_stdint.h"
 
 /* Enable debugging printout at stdout with this variable.  */
 static bfd_boolean debug_relax = FALSE;
@@ -706,6 +705,12 @@ static const struct avr_reloc_map avr_reloc_map[] =
   { BFD_RELOC_AVR_PORT6,	    R_AVR_PORT6},
   { BFD_RELOC_AVR_PORT5,	    R_AVR_PORT5},
   { BFD_RELOC_32_PCREL,		    R_AVR_32_PCREL}
+};
+
+static const struct bfd_elf_special_section elf_avr_special_sections[] =
+{
+  { STRING_COMMA_LEN (".noinit"), 0, SHT_NOBITS,   SHF_ALLOC + SHF_WRITE },
+  { NULL, 0,			  0, 0,		   0 }
 };
 
 /* Meant to be filled one day with the wrap around address for the
@@ -4256,5 +4261,6 @@ avr_elf32_property_record_name (struct avr_property_record *rec)
 #define bfd_elf32_bfd_get_relocated_section_contents \
 					elf32_avr_get_relocated_section_contents
 #define bfd_elf32_new_section_hook	elf_avr_new_section_hook
+#define elf_backend_special_sections	elf_avr_special_sections
 
 #include "elf32-target.h"

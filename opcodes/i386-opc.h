@@ -1,5 +1,5 @@
 /* Declarations for Intel 80386 opcode table
-   Copyright (C) 2007-2018 Free Software Foundation, Inc.
+   Copyright (C) 2007-2019 Free Software Foundation, Inc.
 
    This file is part of the GNU opcodes library.
 
@@ -399,11 +399,12 @@ enum
   /* src/dest swap for floats. */
   FloatR,
   /* needs size prefix if in 32-bit mode */
-  Size16,
+#define SIZE16 1
   /* needs size prefix if in 16-bit mode */
-  Size32,
+#define SIZE32 2
   /* needs size prefix if in 64-bit mode */
-  Size64,
+#define SIZE64 3
+  Size,
   /* check register size.  */
   CheckRegSize,
   /* instruction ignores operand size prefix and in Intel mode ignores
@@ -499,9 +500,11 @@ enum
      0: Set by the REX.W bit.
      1: VEX.W0.  Should always be 0.
      2: VEX.W1.  Should always be 1.
+     3: VEX.WIG. The VEX.W bit is ignored.
    */
 #define VEXW0	1
 #define VEXW1	2
+#define VEXWIG	3
   VexW,
   /* VEX opcode prefix:
      0: VEX 0x0F opcode prefix.
@@ -625,9 +628,7 @@ typedef struct i386_opcode_modifier
   unsigned int jumpintersegment:1;
   unsigned int floatmf:1;
   unsigned int floatr:1;
-  unsigned int size16:1;
-  unsigned int size32:1;
-  unsigned int size64:1;
+  unsigned int size:2;
   unsigned int checkregsize:1;
   unsigned int ignoresize:1;
   unsigned int defaultsize:1;
@@ -861,6 +862,8 @@ typedef struct insn_template
 			       unset if Regmem --> Reg. */
 #define Opcode_FloatR	0x8 /* Bit to swap src/dest for float insns. */
 #define Opcode_FloatD 0x400 /* Direction bit for float insns. */
+#define Opcode_SIMD_FloatD 0x1 /* Direction bit for SIMD fp insns. */
+#define Opcode_SIMD_IntD 0x10 /* Direction bit for SIMD int insns. */
 
   /* extension_opcode is the 3 bit extension for group <n> insns.
      This field is also used to store the 8-bit opcode suffix for the

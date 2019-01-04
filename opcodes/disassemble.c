@@ -1,5 +1,5 @@
 /* Select disassembly routine for specified architecture.
-   Copyright (C) 1994-2018 Free Software Foundation, Inc.
+   Copyright (C) 1994-2019 Free Software Foundation, Inc.
 
    This file is part of the GNU opcodes library.
 
@@ -77,6 +77,7 @@
 #define ARCH_rs6000
 #define ARCH_rl78
 #define ARCH_rx
+#define ARCH_s12z
 #define ARCH_s390
 #define ARCH_score
 #define ARCH_sh
@@ -655,6 +656,11 @@ disassemble_init_for_target (struct disassemble_info * info)
       disassemble_init_powerpc (info);
       break;
 #endif
+#ifdef ARCH_riscv
+    case bfd_arch_riscv:
+      info->symbol_is_valid = riscv_symbol_is_valid;
+      break;
+#endif
 #ifdef ARCH_wasm32
     case bfd_arch_wasm32:
       disassemble_init_wasm32 (info);
@@ -665,6 +671,11 @@ disassemble_init_for_target (struct disassemble_info * info)
       disassemble_init_s390 (info);
       break;
 #endif
+#ifdef ARCH_nds32
+    case bfd_arch_nds32:
+      disassemble_init_nds32 (info);
+      break;
+ #endif
     default:
       break;
     }

@@ -1,6 +1,6 @@
 /* Common definitions.
 
-   Copyright (C) 1986-2018 Free Software Foundation, Inc.
+   Copyright (C) 1986-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -65,9 +65,10 @@
    enable it here in order to try to catch these problems earlier;
    plus this seems like a reasonable safety measure.  The check for
    optimization is required because _FORTIFY_SOURCE only works when
-   optimization is enabled.  */
+   optimization is enabled.  If _FORTIFY_SOURCE is already defined,
+   then we don't do anything.  */
 
-#if defined __OPTIMIZE__ && __OPTIMIZE__ > 0
+#if !defined _FORTIFY_SOURCE && defined __OPTIMIZE__ && __OPTIMIZE__ > 0
 #define _FORTIFY_SOURCE 2
 #endif
 

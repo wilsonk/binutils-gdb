@@ -1,5 +1,5 @@
 /* Target-dependent code for the 32-bit OpenRISC 1000, for the GDB.
-   Copyright (C) 2008-2018 Free Software Foundation, Inc.
+   Copyright (C) 2008-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -595,7 +595,8 @@ static CORE_ADDR
 or1k_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 		      struct regcache *regcache, CORE_ADDR bp_addr,
 		      int nargs, struct value **args, CORE_ADDR sp,
-		      int struct_return, CORE_ADDR struct_addr)
+		      function_call_return_method return_method,
+		      CORE_ADDR struct_addr)
 {
 
   int argreg;
@@ -617,7 +618,7 @@ or1k_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 
   /* Location for a returned structure.  This is passed as a silent first
      argument.  */
-  if (struct_return)
+  if (return_method == return_method_struct)
     {
       regcache_cooked_write_unsigned (regcache, OR1K_FIRST_ARG_REGNUM,
 				      struct_addr);
@@ -1254,6 +1255,9 @@ or1k_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 
       tdesc_use_registers (gdbarch, tdesc, tdesc_data);
     }
+
+  /* Hook in ABI-specific overrides, if they have been registered.  */
+  gdbarch_init_osabi (info, gdbarch);
 
   return gdbarch;
 }

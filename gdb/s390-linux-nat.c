@@ -1,5 +1,5 @@
 /* S390 native-dependent code for GDB, the GNU debugger.
-   Copyright (C) 2001-2018 Free Software Foundation, Inc.
+   Copyright (C) 2001-2019 Free Software Foundation, Inc.
 
    Contributed by D.J. Barrow (djbarrow@de.ibm.com,barrow_dj@yahoo.com)
    for IBM Deutschland Entwicklung GmbH, IBM Corporation.
@@ -122,7 +122,6 @@ public:
   int remove_hw_breakpoint (struct gdbarch *, struct bp_target_info *)
     override;
   int region_ok_for_hw_watchpoint (CORE_ADDR, int) override;
-  bool have_continuable_watchpoint () override { return true; }
   bool stopped_by_watchpoint () override;
   int insert_watchpoint (CORE_ADDR, int, enum target_hw_bp_type,
 			 struct expression *) override;

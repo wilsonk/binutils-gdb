@@ -1,6 +1,6 @@
 /* Python interface to inferior threads.
 
-   Copyright (C) 2009-2018 Free Software Foundation, Inc.
+   Copyright (C) 2009-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -41,12 +41,16 @@ create_thread_object (struct thread_info *tp)
 {
   thread_object *thread_obj;
 
+  gdbpy_ref<inferior_object> inf_obj = inferior_to_inferior_object (tp->inf);
+  if (inf_obj == NULL)
+    return NULL;
+
   thread_obj = PyObject_New (thread_object, &thread_object_type);
   if (!thread_obj)
     return NULL;
 
   thread_obj->thread = tp;
-  thread_obj->inf_obj = (PyObject *) inferior_to_inferior_object (tp->inf);
+  thread_obj->inf_obj = (PyObject *) inf_obj.release ();
 
   return thread_obj;
 }
@@ -284,15 +288,7 @@ PyObject *
 gdbpy_selected_thread (PyObject *self, PyObject *args)
 {
   if (inferior_ptid != null_ptid)
-    {
-      PyObject *thread_obj
-	= (PyObject *) thread_to_thread_object (inferior_thread ());
-      if (thread_obj != NULL)
-	{
-	  Py_INCREF (thread_obj);
-	  return thread_obj;
-	}
-    }
+    return thread_to_thread_object (inferior_thread ()).release ();
 
   Py_RETURN_NONE;
 }

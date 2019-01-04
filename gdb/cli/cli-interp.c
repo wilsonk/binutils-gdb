@@ -1,6 +1,6 @@
 /* CLI Definitions for GDB, the GNU debugger.
 
-   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+   Copyright (C) 2002-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -44,6 +44,7 @@ class cli_interp final : public cli_interp_base
 {
  public:
   explicit cli_interp (const char *name);
+  ~cli_interp ();
 
   void init (bool top_level) override;
   void resume () override;
@@ -60,6 +61,11 @@ cli_interp::cli_interp (const char *name)
 {
   /* Create a default uiout builder for the CLI.  */
   this->cli_uiout = cli_out_new (gdb_stdout);
+}
+
+cli_interp::~cli_interp ()
+{
+  delete cli_uiout;
 }
 
 /* Suppress notification struct.  */
@@ -251,13 +257,11 @@ cli_on_command_error (void)
 static void
 cli_on_user_selected_context_changed (user_selected_what selection)
 {
-  struct thread_info *tp;
-
   /* This event is suppressed.  */
   if (cli_suppress_notification.user_selected_context)
     return;
 
-  tp = find_thread_ptid (inferior_ptid);
+  thread_info *tp = inferior_ptid != null_ptid ? inferior_thread () : NULL;
 
   SWITCH_THRU_ALL_UIS ()
     {

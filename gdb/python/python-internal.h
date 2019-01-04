@@ -1,6 +1,6 @@
 /* Gdb/Python header for private use by Python module.
 
-   Copyright (C) 2008-2018 Free Software Foundation, Inc.
+   Copyright (C) 2008-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -27,27 +27,15 @@
    comes with the Python plugin for GCC.  See:
    https://gcc-python-plugin.readthedocs.org/en/latest/cpychecker.html
    The checker defines a WITH_ macro for each attribute it
-   exposes.  */
-
-#ifdef WITH_CPYCHECKER_RETURNS_BORROWED_REF_ATTRIBUTE
-#define CPYCHECKER_RETURNS_BORROWED_REF			\
-  __attribute__ ((cpychecker_returns_borrowed_ref))
-#else
-#define CPYCHECKER_RETURNS_BORROWED_REF
-#endif
+   exposes.  Note that we intentionally do not use
+   'cpychecker_returns_borrowed_ref' -- that idiom is forbidden in
+   gdb.  */
 
 #ifdef WITH_CPYCHECKER_TYPE_OBJECT_FOR_TYPEDEF_ATTRIBUTE
 #define CPYCHECKER_TYPE_OBJECT_FOR_TYPEDEF(ARG)		\
   __attribute__ ((cpychecker_type_object_for_typedef (ARG)))
 #else
 #define CPYCHECKER_TYPE_OBJECT_FOR_TYPEDEF(ARG)
-#endif
-
-#ifdef WITH_CPYCHECKER_STEALS_REFERENCE_TO_ARG_ATTRIBUTE
-#define CPYCHECKER_STEALS_REFERENCE_TO_ARG(n) \
-   __attribute__ ((cpychecker_steals_reference_to_arg (n)))
-#else
-#define CPYCHECKER_STEALS_REFERENCE_TO_ARG(n)
 #endif
 
 #ifdef WITH_CPYCHECKER_SETS_EXCEPTION_ATTRIBUTE
@@ -99,6 +87,7 @@
    from including our python/python.h header file.  */
 #include <Python.h>
 #include <frameobject.h>
+#include "py-ref.h"
 
 #if PY_MAJOR_VERSION >= 3
 #define IS_PY3K 1
@@ -491,7 +480,6 @@ PyObject *gdbpy_current_recording (PyObject *self, PyObject *args);
 PyObject *gdbpy_stop_recording (PyObject *self, PyObject *args);
 PyObject *gdbpy_newest_frame (PyObject *self, PyObject *args);
 PyObject *gdbpy_selected_frame (PyObject *self, PyObject *args);
-PyObject *gdbpy_block_for_pc (PyObject *self, PyObject *args);
 PyObject *gdbpy_lookup_type (PyObject *self, PyObject *args, PyObject *kw);
 int gdbpy_is_field (PyObject *obj);
 PyObject *gdbpy_create_lazy_string_object (CORE_ADDR address, long length,
@@ -516,15 +504,13 @@ PyObject *value_to_value_object (struct value *v);
 PyObject *type_to_type_object (struct type *);
 PyObject *frame_info_to_frame_object (struct frame_info *frame);
 PyObject *symtab_to_linetable_object (PyObject *symtab);
-PyObject *pspace_to_pspace_object (struct program_space *)
-    CPYCHECKER_RETURNS_BORROWED_REF;
+gdbpy_ref<> pspace_to_pspace_object (struct program_space *);
 PyObject *pspy_get_printers (PyObject *, void *);
 PyObject *pspy_get_frame_filters (PyObject *, void *);
 PyObject *pspy_get_frame_unwinders (PyObject *, void *);
 PyObject *pspy_get_xmethods (PyObject *, void *);
 
-PyObject *objfile_to_objfile_object (struct objfile *)
-    CPYCHECKER_RETURNS_BORROWED_REF;
+gdbpy_ref<> objfile_to_objfile_object (struct objfile *);
 PyObject *objfpy_get_printers (PyObject *, void *);
 PyObject *objfpy_get_frame_filters (PyObject *, void *);
 PyObject *objfpy_get_frame_unwinders (PyObject *, void *);
@@ -534,9 +520,8 @@ PyObject *gdbpy_lookup_objfile (PyObject *self, PyObject *args, PyObject *kw);
 PyObject *gdbarch_to_arch_object (struct gdbarch *gdbarch);
 
 thread_object *create_thread_object (struct thread_info *tp);
-thread_object *thread_to_thread_object (thread_info *thr)
-  CPYCHECKER_RETURNS_BORROWED_REF;
-inferior_object *inferior_to_inferior_object (inferior *inf);
+gdbpy_ref<> thread_to_thread_object (thread_info *thr);;
+gdbpy_ref<inferior_object> inferior_to_inferior_object (inferior *inf);
 
 const struct block *block_object_to_block (PyObject *obj);
 struct symbol *symbol_object_to_symbol (PyObject *obj);
@@ -606,6 +591,60 @@ int gdbpy_initialize_xmethods (void)
 int gdbpy_initialize_unwind (void)
   CPYCHECKER_NEGATIVE_RESULT_SETS_EXCEPTION;
 
+/* A wrapper for PyErr_Fetch that handles reference counting for the
+   caller.  */
+class gdbpy_err_fetch
+{
+public:
+
+  gdbpy_err_fetch ()
+  {
+    PyErr_Fetch (&m_error_type, &m_error_value, &m_error_traceback);
+  }
+
+  ~gdbpy_err_fetch ()
+  {
+    Py_XDECREF (m_error_type);
+    Py_XDECREF (m_error_value);
+    Py_XDECREF (m_error_traceback);
+  }
+
+  /* Call PyErr_Restore using the values stashed in this object.
+     After this call, this object is invalid and neither the to_string
+     nor restore methods may be used again.  */
+
+  void restore ()
+  {
+    PyErr_Restore (m_error_type, m_error_value, m_error_traceback);
+    m_error_type = nullptr;
+    m_error_value = nullptr;
+    m_error_traceback = nullptr;
+  }
+
+  /* Return the string representation of the exception represented by
+     this object.  If the result is NULL a python error occurred, the
+     caller must clear it.  */
+
+  gdb::unique_xmalloc_ptr<char> to_string () const;
+
+  /* Return the string representation of the type of the exception
+     represented by this object.  If the result is NULL a python error
+     occurred, the caller must clear it.  */
+
+  gdb::unique_xmalloc_ptr<char> type_to_string () const;
+
+  /* Return true if the stored type matches TYPE, false otherwise.  */
+
+  bool type_matches (PyObject *type) const
+  {
+    return PyErr_GivenExceptionMatches (m_error_type, type);
+  }
+
+private:
+
+  PyObject *m_error_type, *m_error_value, *m_error_traceback;
+};
+
 /* Called before entering the Python interpreter to install the
    current language and architecture to be used for Python values.
    Also set the active extension language for GDB so that SIGINT's
@@ -627,7 +666,10 @@ class gdbpy_enter
   PyGILState_STATE m_state;
   struct gdbarch *m_gdbarch;
   const struct language_defn *m_language;
-  PyObject *m_error_type, *m_error_value, *m_error_traceback;
+
+  /* An optional is used here because we don't want to call
+     PyErr_Fetch too early.  */
+  gdb::optional<gdbpy_err_fetch> m_error;
 };
 
 /* Like gdbpy_enter, but takes a varobj.  This is a subclass just to
@@ -669,17 +711,17 @@ extern const struct language_defn *python_language;
 
 int gdbpy_print_python_errors_p (void);
 void gdbpy_print_stack (void);
+void gdbpy_print_stack_or_quit ();
+void gdbpy_handle_exception () ATTRIBUTE_NORETURN;
 
-PyObject *python_string_to_unicode (PyObject *obj);
+gdbpy_ref<> python_string_to_unicode (PyObject *obj);
 gdb::unique_xmalloc_ptr<char> unicode_to_target_string (PyObject *unicode_str);
 gdb::unique_xmalloc_ptr<char> python_string_to_target_string (PyObject *obj);
-PyObject *python_string_to_target_python_string (PyObject *obj);
+gdbpy_ref<> python_string_to_target_python_string (PyObject *obj);
 gdb::unique_xmalloc_ptr<char> python_string_to_host_string (PyObject *obj);
-PyObject *host_string_to_python_string (const char *str);
+gdbpy_ref<> host_string_to_python_string (const char *str);
 int gdbpy_is_string (PyObject *obj);
 gdb::unique_xmalloc_ptr<char> gdbpy_obj_to_string (PyObject *obj);
-gdb::unique_xmalloc_ptr<char> gdbpy_exception_to_string (PyObject *ptype,
-							 PyObject *pvalue);
 
 int gdbpy_is_lazy_string (PyObject *result);
 void gdbpy_extract_lazy_string (PyObject *string, CORE_ADDR *addr,
@@ -691,10 +733,10 @@ int gdbpy_is_value_object (PyObject *obj);
 
 /* Note that these are declared here, and not in python.h with the
    other pretty-printer functions, because they refer to PyObject.  */
-PyObject *apply_varobj_pretty_printer (PyObject *print_obj,
-				       struct value **replacement,
-				       struct ui_file *stream);
-PyObject *gdbpy_get_varobj_pretty_printer (struct value *value);
+gdbpy_ref<> apply_varobj_pretty_printer (PyObject *print_obj,
+					 struct value **replacement,
+					 struct ui_file *stream);
+gdbpy_ref<> gdbpy_get_varobj_pretty_printer (struct value *value);
 gdb::unique_xmalloc_ptr<char> gdbpy_get_display_hint (PyObject *printer);
 PyObject *gdbpy_default_visualizer (PyObject *self, PyObject *args);
 
@@ -719,8 +761,8 @@ extern void gdbpy_convert_exception (struct gdb_exception)
 int get_addr_from_python (PyObject *obj, CORE_ADDR *addr)
     CPYCHECKER_NEGATIVE_RESULT_SETS_EXCEPTION;
 
-PyObject *gdb_py_object_from_longest (LONGEST l);
-PyObject *gdb_py_object_from_ulongest (ULONGEST l);
+gdbpy_ref<> gdb_py_object_from_longest (LONGEST l);
+gdbpy_ref<> gdb_py_object_from_ulongest (ULONGEST l);
 int gdb_py_int_as_long (PyObject *, long *);
 
 PyObject *gdb_py_generic_dict (PyObject *self, void *closure);

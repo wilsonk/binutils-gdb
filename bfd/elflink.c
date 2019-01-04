@@ -1,5 +1,5 @@
 /* ELF linking support for BFD.
-   Copyright (C) 1995-2018 Free Software Foundation, Inc.
+   Copyright (C) 1995-2019 Free Software Foundation, Inc.
 
    This file is part of BFD, the Binary File Descriptor library.
 
@@ -20,7 +20,6 @@
 
 #include "sysdep.h"
 #include "bfd.h"
-#include "bfd_stdint.h"
 #include "bfdlink.h"
 #include "libbfd.h"
 #define ARCH_SIZE 0
@@ -223,6 +222,7 @@ _bfd_elf_link_create_dynstrtab (bfd *abfd, struct bfd_link_info *info)
 	    if ((ibfd->flags
 		 & (DYNAMIC | BFD_LINKER_CREATED | BFD_PLUGIN)) == 0
 		&& bfd_get_flavour (ibfd) == bfd_target_elf_flavour
+		&& elf_object_id (ibfd) == elf_hash_table_id (hash_table)
 		&& !((s = ibfd->sections) != NULL
 		     && s->sec_info_type == SEC_INFO_TYPE_JUST_SYMS))
 	      {
@@ -1940,6 +1940,15 @@ _bfd_elf_add_default_symbol (bfd *abfd,
       if (! bfd_link_relocatable (info))
 	{
 	  bh = &hi->root;
+	  if (bh->type == bfd_link_hash_defined
+	      && (bh->u.def.section->owner->flags & BFD_PLUGIN) != 0)
+	    {
+	      /* Mark the previous definition from IR object as
+		 undefined so that the generic linker will override
+		 it.  */
+	      bh->type = bfd_link_hash_undefined;
+	      bh->u.undef.abfd = bh->u.def.section->owner;
+	    }
 	  if (! (_bfd_generic_link_add_one_symbol
 		 (info, abfd, shortname, BSF_INDIRECT,
 		  bfd_ind_section_ptr,
@@ -2358,13 +2367,21 @@ _bfd_elf_link_assign_sym_version (struct elf_link_hash_entry *h, void *data)
       return FALSE;
     }
 
+  bed = get_elf_backend_data (info->output_bfd);
+
   /* We only need version numbers for symbols defined in regular
      objects.  */
   if (!h->def_regular)
-    return TRUE;
+    {
+      /* Hide symbols defined in discarded input sections.  */
+      if ((h->root.type == bfd_link_hash_defined
+	   || h->root.type == bfd_link_hash_defweak)
+	  && discarded_section (h->root.u.def.section))
+	(*bed->elf_backend_hide_symbol) (info, h, TRUE);
+      return TRUE;
+    }
 
   hide = FALSE;
-  bed = get_elf_backend_data (info->output_bfd);
   p = strchr (h->root.root.string, ELF_VER_CHR);
   if (p != NULL && h->verinfo.vertree == NULL)
     {
@@ -4169,7 +4186,7 @@ error_free_dyn:
 	 all sections contained fully therein.  This makes relro
 	 shared library sections appear as they will at run-time.  */
       phdr = elf_tdata (abfd)->phdr + elf_elfheader (abfd)->e_phnum;
-      while (--phdr >= elf_tdata (abfd)->phdr)
+      while (phdr-- > elf_tdata (abfd)->phdr)
 	if (phdr->p_type == PT_GNU_RELRO)
 	  {
 	    for (s = abfd->sections; s != NULL; s = s->next)
@@ -10024,9 +10041,10 @@ elf_link_output_extsym (struct bfd_hash_entry *bh, void *data)
   /* If this symbol should be put in the .dynsym section, then put it
      there now.  We already know the symbol index.  We also fill in
      the entry in the .hash section.  */
-  if (elf_hash_table (flinfo->info)->dynsym != NULL
-      && h->dynindx != -1
-      && elf_hash_table (flinfo->info)->dynamic_sections_created)
+  if (h->dynindx != -1
+      && elf_hash_table (flinfo->info)->dynamic_sections_created
+      && elf_hash_table (flinfo->info)->dynsym != NULL
+      && !discarded_section (elf_hash_table (flinfo->info)->dynsym))
     {
       bfd_byte *esym;
 
@@ -10487,8 +10505,11 @@ elf_link_input_bfd (struct elf_final_link_info *flinfo, bfd *input_bfd)
 	  if (ELF_ST_TYPE (osym.st_info) == STT_TLS)
 	    {
 	      /* STT_TLS symbols are relative to PT_TLS segment base.  */
-	      BFD_ASSERT (elf_hash_table (flinfo->info)->tls_sec != NULL);
-	      osym.st_value -= elf_hash_table (flinfo->info)->tls_sec->vma;
+	      if (elf_hash_table (flinfo->info)->tls_sec != NULL)
+		osym.st_value -= elf_hash_table (flinfo->info)->tls_sec->vma;
+	      else
+		osym.st_info = ELF_ST_INFO (ELF_ST_BIND (osym.st_info),
+					    STT_NOTYPE);
 	    }
 	}
 
@@ -11044,12 +11065,17 @@ elf_link_input_bfd (struct elf_final_link_info *flinfo, bfd *input_bfd)
 			      sym.st_value += osec->vma;
 			      if (ELF_ST_TYPE (sym.st_info) == STT_TLS)
 				{
+				  struct elf_link_hash_table *htab
+				    = elf_hash_table (flinfo->info);
+
 				  /* STT_TLS symbols are relative to PT_TLS
 				     segment base.  */
-				  BFD_ASSERT (elf_hash_table (flinfo->info)
-					      ->tls_sec != NULL);
-				  sym.st_value -= (elf_hash_table (flinfo->info)
-						   ->tls_sec->vma);
+				  if (htab->tls_sec != NULL)
+				    sym.st_value -= htab->tls_sec->vma;
+				  else
+				    sym.st_info
+				      = ELF_ST_INFO (ELF_ST_BIND (sym.st_info),
+						     STT_NOTYPE);
 				}
 			    }
 

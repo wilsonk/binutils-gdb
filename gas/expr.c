@@ -1,5 +1,5 @@
 /* expr.c -operands, expressions-
-   Copyright (C) 1987-2018 Free Software Foundation, Inc.
+   Copyright (C) 1987-2019 Free Software Foundation, Inc.
 
    This file is part of GAS, the GNU Assembler.
 
@@ -1837,6 +1837,13 @@ expr (int rankarg,		/* Larger # is higher rank.  */
 	  right.X_add_symbol = NULL;
 	  right.X_op_symbol = NULL;
 	}
+
+      if (mode == expr_defer
+	  && ((resultP->X_add_symbol != NULL
+	       && S_IS_FORWARD_REF (resultP->X_add_symbol))
+	      || (right.X_add_symbol != NULL
+		  && S_IS_FORWARD_REF (right.X_add_symbol))))
+	goto general;
 
       /* Optimize common cases.  */
 #ifdef md_optimize_expr

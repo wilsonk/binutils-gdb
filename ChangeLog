@@ -1,3 +1,19 @@
+2019-01-03  Дилян Палаузов  <dilyan.palauzov@aegee.org>
+
+	* configure.ac: Don't configure readline if --with-system-readline is
+	used.
+	* configure: Re-generate.
+
+2018-10-31  Joseph Myers  <joseph@codesourcery.com>
+
+	Merge from GCC:
+	PR bootstrap/82856
+	* multilib.am: New file.  From automake.
+
+2018-09-12  Sergio Durigan Junior  <sergiodj@redhat.com>
+
+	* src-release.sh (GDB_SUPPORT_DIRS): Add "contrib".
+
 2018-07-16  Nick Clifton  <nickc@redhat.com>
 
 	* src-release.sh (DEVO_SUPPORT): Add test-driver and ar-lib.

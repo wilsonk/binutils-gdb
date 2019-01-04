@@ -1,6 +1,6 @@
 /* Everything about breakpoints, for GDB.
 
-   Copyright (C) 1986-2018 Free Software Foundation, Inc.
+   Copyright (C) 1986-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -68,6 +68,7 @@
 #include "format.h"
 #include "thread-fsm.h"
 #include "tid-parse.h"
+#include "cli/cli-style.h"
 
 /* readline include files */
 #include "readline/readline.h"
@@ -400,8 +401,6 @@ breakpoints_should_be_inserted_now (void)
     }
   else if (target_has_execution)
     {
-      struct thread_info *tp;
-
       if (always_inserted_mode)
 	{
 	  /* The user wants breakpoints inserted even if all threads
@@ -414,7 +413,7 @@ breakpoints_should_be_inserted_now (void)
 
       /* Don't remove breakpoints yet if, even though all threads are
 	 stopped, we still have events to process.  */
-      ALL_NON_EXITED_THREADS (tp)
+      for (thread_info *tp : all_non_exited_threads ())
 	if (tp->resumed
 	    && tp->suspend.waitstatus_pending_p)
 	  return 1;
@@ -1219,6 +1218,10 @@ commands_command_1 (const char *arg, int from_tty,
 		    struct command_line *control)
 {
   counted_command_line cmd;
+  /* cmd_read will be true once we have read cmd.  Note that cmd might still be
+     NULL after the call to read_command_lines if the user provides an empty
+     list of command by just typing "end".  */
+  bool cmd_read = false;
 
   std::string new_arg;
 
@@ -1235,8 +1238,9 @@ commands_command_1 (const char *arg, int from_tty,
   map_breakpoint_numbers
     (arg, [&] (breakpoint *b)
      {
-       if (cmd == NULL)
+       if (!cmd_read)
 	 {
+	   gdb_assert (cmd == NULL);
 	   if (control != NULL)
 	     cmd = control->body_list_0;
 	   else
@@ -1256,6 +1260,7 @@ commands_command_1 (const char *arg, int from_tty,
 
 	       cmd = read_command_lines (str.c_str (), from_tty, 1, validator);
 	     }
+	   cmd_read = true;
 	 }
 
        /* If a breakpoint was on the list more than once, we don't need to
@@ -2892,7 +2897,7 @@ update_inserted_breakpoint_locations (void)
       /* We only want to update locations that are already inserted
 	 and need updating.  This is to avoid unwanted insertion during
 	 deletion of breakpoints.  */
-      if (!bl->inserted || (bl->inserted && !bl->needs_update))
+      if (!bl->inserted || !bl->needs_update)
 	continue;
 
       switch_to_program_space_and_thread (bl->pspace);
@@ -3294,8 +3299,6 @@ create_longjmp_master_breakpoint (void)
 
       if (!bp_objfile_data->longjmp_probes.empty ())
 	{
-	  struct gdbarch *gdbarch = get_objfile_arch (objfile);
-
 	  for (probe *p : bp_objfile_data->longjmp_probes)
 	    {
 	      struct breakpoint *b;
@@ -3447,12 +3450,10 @@ create_exception_master_breakpoint (void)
 
       if (!bp_objfile_data->exception_probes.empty ())
 	{
-	  struct gdbarch *gdbarch = get_objfile_arch (objfile);
+	  gdbarch = get_objfile_arch (objfile);
 
 	  for (probe *p : bp_objfile_data->exception_probes)
 	    {
-	      struct breakpoint *b;
-
 	      b = create_internal_breakpoint (gdbarch,
 					      p->get_relocated_address (objfile),
 					      bp_exception_master,
@@ -5860,13 +5861,15 @@ print_breakpoint_location (struct breakpoint *b,
       if (sym)
 	{
 	  uiout->text ("in ");
-	  uiout->field_string ("func", SYMBOL_PRINT_NAME (sym));
+	  uiout->field_string ("func", SYMBOL_PRINT_NAME (sym),
+			       ui_out_style_kind::FUNCTION);
 	  uiout->text (" ");
 	  uiout->wrap_hint (wrap_indent_at_field (uiout, "what"));
 	  uiout->text ("at ");
 	}
       uiout->field_string ("file",
-			   symtab_to_filename_for_display (loc->symtab));
+			   symtab_to_filename_for_display (loc->symtab),
+			   ui_out_style_kind::FILE);
       uiout->text (":");
 
       if (uiout->is_mi_like_p ())
@@ -6056,16 +6059,13 @@ print_one_breakpoint_location (struct breakpoint *b,
   else
     uiout->field_string ("disp", bpdisp_text (b->disposition));
 
-
   /* 4 */
   annotate_field (3);
   if (part_of_multiple)
     uiout->field_string ("enabled", loc->enabled ? "y" : "n");
   else
     uiout->field_fmt ("enabled", "%c", bpenables[(int) b->enable_state]);
-  uiout->spaces (2);
 
-  
   /* 5 and 6 */
   if (b->ops != NULL && b->ops->print_one != NULL)
     {
@@ -6150,11 +6150,10 @@ print_one_breakpoint_location (struct breakpoint *b,
 
   if (loc != NULL && !header_of_multiple)
     {
-      struct inferior *inf;
       std::vector<int> inf_nums;
       int mi_only = 1;
 
-      ALL_INFERIORS (inf)
+      for (inferior *inf : all_inferiors ())
 	{
 	  if (inf->pspace == loc->pspace)
 	    inf_nums.push_back (inf->num);
@@ -9585,7 +9584,7 @@ stopat_command (const char *arg, int from_tty)
     }
 
   if (badInput)
-    printf_filtered (_("Usage: stop at <line>\n"));
+    printf_filtered (_("Usage: stop at LINE\n"));
   else
     break_command_1 (arg, 0, from_tty);
 }
@@ -10512,7 +10511,7 @@ watch_command_1 (const char *arg, int accessflag, int from_tty,
 {
   struct breakpoint *scope_breakpoint = NULL;
   const struct block *exp_valid_block = NULL, *cond_exp_valid_block = NULL;
-  struct value *mark, *result;
+  struct value *result;
   int saved_bitpos = 0, saved_bitsize = 0;
   const char *exp_start = NULL;
   const char *exp_end = NULL;
@@ -10637,7 +10636,7 @@ watch_command_1 (const char *arg, int accessflag, int from_tty,
     }
 
   exp_valid_block = innermost_block.block ();
-  mark = value_mark ();
+  struct value *mark = value_mark ();
   struct value *val_as_value = nullptr;
   fetch_subexp_value (exp.get (), &pc, &val_as_value, &result, NULL,
 		      just_location);
@@ -11488,14 +11487,14 @@ clear_command (const char *arg, int from_tty)
 
   /* Remove duplicates from the vec.  */
   std::sort (found.begin (), found.end (),
-	     [] (const breakpoint *a, const breakpoint *b)
+	     [] (const breakpoint *bp_a, const breakpoint *bp_b)
 	     {
-	       return compare_breakpoints (a, b) < 0;
+	       return compare_breakpoints (bp_a, bp_b) < 0;
 	     });
   found.erase (std::unique (found.begin (), found.end (),
-			    [] (const breakpoint *a, const breakpoint *b)
+			    [] (const breakpoint *bp_a, const breakpoint *bp_b)
 			    {
-			      return compare_breakpoints (a, b) == 0;
+			      return compare_breakpoints (bp_a, bp_b) == 0;
 			    }),
 	       found.end ());
 
@@ -12197,9 +12196,14 @@ say_where (struct breakpoint *b)
 	  /* If there is a single location, we can print the location
 	     more nicely.  */
 	  if (b->loc->next == NULL)
-	    printf_filtered (": file %s, line %d.",
-			     symtab_to_filename_for_display (b->loc->symtab),
-			     b->loc->line_number);
+	    {
+	      puts_filtered (": file ");
+	      fputs_styled (symtab_to_filename_for_display (b->loc->symtab),
+			    file_name_style.style (),
+			    gdb_stdout);
+	      printf_filtered (", line %d.",
+			       b->loc->line_number);
+	    }
 	  else
 	    /* This is not ideal, but each location may have a
 	       different file name, and this at least reflects the
@@ -13284,9 +13288,9 @@ delete_command (const char *arg, int from_tty)
     }
   else
     map_breakpoint_numbers
-      (arg, [&] (breakpoint *b)
+      (arg, [&] (breakpoint *br)
        {
-	 iterate_over_related_breakpoints (b, delete_breakpoint);
+	 iterate_over_related_breakpoints (br, delete_breakpoint);
        });
 }
 
@@ -13431,11 +13435,13 @@ update_static_tracepoint (struct breakpoint *b, struct symtab_and_line sal)
 	  uiout->text ("Now in ");
 	  if (sym)
 	    {
-	      uiout->field_string ("func", SYMBOL_PRINT_NAME (sym));
+	      uiout->field_string ("func", SYMBOL_PRINT_NAME (sym),
+				   ui_out_style_kind::FUNCTION);
 	      uiout->text (" at ");
 	    }
 	  uiout->field_string ("file",
-			       symtab_to_filename_for_display (sal2.symtab));
+			       symtab_to_filename_for_display (sal2.symtab),
+			       ui_out_style_kind::FILE);
 	  uiout->text (":");
 
 	  if (uiout->is_mi_like_p ())
@@ -14855,9 +14861,9 @@ delete_trace_command (const char *arg, int from_tty)
     }
   else
     map_breakpoint_numbers
-      (arg, [&] (breakpoint *b)
+      (arg, [&] (breakpoint *br)
        {
-	 iterate_over_related_breakpoints (b, delete_breakpoint);
+	 iterate_over_related_breakpoints (br, delete_breakpoint);
        });
 }
 
@@ -15500,6 +15506,10 @@ initialize_breakpoint_ops (void)
 
 static struct cmd_list_element *enablebreaklist = NULL;
 
+/* See breakpoint.h.  */
+
+cmd_list_element *commands_cmd_element = nullptr;
+
 void
 _initialize_breakpoint (void)
 {
@@ -15525,7 +15535,8 @@ _initialize_breakpoint (void)
 Set ignore-count of breakpoint number N to COUNT.\n\
 Usage is `ignore N COUNT'."));
 
-  add_com ("commands", class_breakpoint, commands_command, _("\
+  commands_cmd_element = add_com ("commands", class_breakpoint,
+				  commands_command, _("\
 Set commands to be executed when the given breakpoints are hit.\n\
 Give a space-separated breakpoint list as argument after \"commands\".\n\
 A list element can be a breakpoint number (e.g. `5') or a range of numbers\n\

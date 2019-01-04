@@ -1,6 +1,6 @@
 /* libthread_db assisted debugging support, generic parts.
 
-   Copyright (C) 1999-2018 Free Software Foundation, Inc.
+   Copyright (C) 1999-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -85,10 +85,10 @@ static const target_info thread_db_target_info = {
 class thread_db_target final : public target_ops
 {
 public:
-  thread_db_target ();
-
   const target_info &info () const override
   { return thread_db_target_info; }
+
+  strata stratum () const override { return thread_stratum; }
 
   void detach (inferior *, int) override;
   ptid_t wait (ptid_t, struct target_waitstatus *, int) override;
@@ -106,11 +106,6 @@ public:
 					     int handle_len,
 					     inferior *inf) override;
 };
-
-thread_db_target::thread_db_target ()
-{
-  this->to_stratum = thread_stratum;
-}
 
 static char *libthread_db_search_path;
 
@@ -199,6 +194,7 @@ struct thread_db_info
 
   td_init_ftype *td_init_p;
   td_ta_new_ftype *td_ta_new_p;
+  td_ta_delete_ftype *td_ta_delete_p;
   td_ta_map_lwp2thr_ftype *td_ta_map_lwp2thr_p;
   td_ta_thr_iter_ftype *td_ta_thr_iter_p;
   td_thr_get_info_ftype *td_thr_get_info_p;
@@ -259,6 +255,8 @@ get_thread_db_info (int pid)
   return NULL;
 }
 
+static const char *thread_db_err_str (td_err_e err);
+
 /* When PID has exited or has been detached, we no longer want to keep
    track of it as using libpthread.  Call this function to discard
    thread_db related info related to PID.  Note that this closes
@@ -277,6 +275,16 @@ delete_thread_db_info (int pid)
 
   if (info == NULL)
     return;
+
+  if (info->thread_agent != NULL && info->td_ta_delete_p != NULL)
+    {
+      td_err_e err = info->td_ta_delete_p (info->thread_agent);
+
+      if (err != TD_OK)
+	warning (_("Cannot deregister process %d from libthread_db: %s"),
+		 pid, thread_db_err_str (err));
+      info->thread_agent = NULL;
+    }
 
   if (info->handle != NULL)
     dlclose (info->handle);
@@ -860,6 +868,7 @@ try_thread_db_load_1 (struct thread_db_info *info)
   /* These are not essential.  */
   TDB_DLSYM (info, td_thr_tls_get_addr);
   TDB_DLSYM (info, td_thr_tlsbase);
+  TDB_DLSYM (info, td_ta_delete);
 
   /* It's best to avoid td_ta_thr_iter if possible.  That walks data
      structures in the inferior's address space that may be corrupted,
@@ -1587,11 +1596,10 @@ void
 thread_db_target::update_thread_list ()
 {
   struct thread_db_info *info;
-  struct inferior *inf;
 
   prune_threads ();
 
-  ALL_INFERIORS (inf)
+  for (inferior *inf : all_inferiors ())
     {
       struct thread_info *thread;
 
@@ -1671,7 +1679,6 @@ thread_db_target::thread_handle_to_thread_info (const gdb_byte *thread_handle,
 						int handle_len,
 						inferior *inf)
 {
-  struct thread_info *tp;
   thread_t handle_tid;
 
   /* Thread handle sizes must match in order to proceed.  We don't use an
@@ -1684,11 +1691,11 @@ thread_db_target::thread_handle_to_thread_info (const gdb_byte *thread_handle,
 
   handle_tid = * (const thread_t *) thread_handle;
 
-  ALL_NON_EXITED_THREADS (tp)
+  for (thread_info *tp : inf->non_exited_threads ())
     {
       thread_db_thread_info *priv = get_thread_db_thread_info (tp);
 
-      if (tp->inf == inf && priv != NULL && handle_tid == priv->tid)
+      if (priv != NULL && handle_tid == priv->tid)
         return tp;
     }
 

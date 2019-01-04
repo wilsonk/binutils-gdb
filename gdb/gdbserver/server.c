@@ -1,5 +1,5 @@
 /* Main code for remote server for GDB.
-   Copyright (C) 1989-2018 Free Software Foundation, Inc.
+   Copyright (C) 1989-2019 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -1255,11 +1255,15 @@ handle_detach (char *own_buf)
 
   fprintf (stderr, "Detaching from process %d\n", process->pid);
   stop_tracing ();
+
+  /* We'll need this after PROCESS has been destroyed.  */
+  int pid = process->pid;
+
   if (detach_inferior (process) != 0)
     write_enn (own_buf);
   else
     {
-      discard_queued_stop_replies (ptid_t (process->pid));
+      discard_queued_stop_replies (ptid_t (pid));
       write_ok (own_buf);
 
       if (extended_protocol || target_running ())
@@ -1269,7 +1273,7 @@ handle_detach (char *own_buf)
 	     and instead treat this like a normal program exit.  */
 	  cs.last_status.kind = TARGET_WAITKIND_EXITED;
 	  cs.last_status.value.integer = 0;
-	  cs.last_ptid = ptid_t (process->pid);
+	  cs.last_ptid = ptid_t (pid);
 
 	  current_thread = NULL;
 	}
@@ -1281,7 +1285,7 @@ handle_detach (char *own_buf)
 	  /* If we are attached, then we can exit.  Otherwise, we
 	     need to hang around doing nothing, until the child is
 	     gone.  */
-	  join_inferior (process);
+	  join_inferior (pid);
 	  exit (0);
 	}
     }
@@ -3367,9 +3371,9 @@ handle_status (char *own_buf)
       /* If the last event thread is not found for some reason, look
 	 for some other thread that might have an event to report.  */
       if (thread == NULL)
-	thread = find_thread ([] (thread_info *thread)
+	thread = find_thread ([] (thread_info *thr_arg)
 	  {
-	    return thread->status_pending_p;
+	    return thr_arg->status_pending_p;
 	  });
 
       /* If we're still out of luck, simply pick the first thread in
@@ -3402,7 +3406,7 @@ static void
 gdbserver_version (void)
 {
   printf ("GNU gdbserver %s%s\n"
-	  "Copyright (C) 2018 Free Software Foundation, Inc.\n"
+	  "Copyright (C) 2019 Free Software Foundation, Inc.\n"
 	  "gdbserver is free software, covered by the "
 	  "GNU General Public License.\n"
 	  "This gdbserver was configured as \"%s\"\n",
@@ -3790,7 +3794,7 @@ captured_main (int argc, char *argv[])
 #if GDB_SELF_TEST
       selftests::run_tests (selftest_filter);
 #else
-      printf (_("Selftests are not available in a non-development build.\n"));
+      printf (_("Selftests have been disabled for this build.\n"));
 #endif
       throw_quit ("Quit");
     }
@@ -4028,7 +4032,6 @@ process_serial_event (void)
   client_state &cs = get_client_state ();
   int signal;
   unsigned int len;
-  int res;
   CORE_ADDR mem_addr;
   unsigned char sig;
   int packet_len;
@@ -4172,13 +4175,15 @@ process_serial_event (void)
 	}
       break;
     case 'm':
-      require_running_or_break (cs.own_buf);
-      decode_m_packet (&cs.own_buf[1], &mem_addr, &len);
-      res = gdb_read_memory (mem_addr, mem_buf, len);
-      if (res < 0)
-	write_enn (cs.own_buf);
-      else
-	bin2hex (mem_buf, cs.own_buf, res);
+      {
+	require_running_or_break (cs.own_buf);
+	decode_m_packet (&cs.own_buf[1], &mem_addr, &len);
+	int res = gdb_read_memory (mem_addr, mem_buf, len);
+	if (res < 0)
+	  write_enn (cs.own_buf);
+	else
+	  bin2hex (mem_buf, cs.own_buf, res);
+      }
       break;
     case 'M':
       require_running_or_break (cs.own_buf);

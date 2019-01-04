@@ -1,6 +1,6 @@
 # config.bfd
 #
-#   Copyright (C) 2012-2018 Free Software Foundation, Inc.
+#   Copyright (C) 2012-2019 Free Software Foundation, Inc.
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -1066,7 +1066,7 @@ case "${targ}" in
     want64=true
     ;;
 #ifdef BFD64
-  powerpc64-*-aix5.[01] | rs6000-*-aix5.[01])
+  powerpc64-*-aix5.[01])
     targ_defvec=rs6000_xcoff64_aix_vec
     targ_selvecs="rs6000_xcoff_vec"
     want64=true
@@ -1079,7 +1079,7 @@ case "${targ}" in
     want64=true
     ;;
 #ifdef BFD64
-  powerpc64-*-aix[5-9]* | rs6000-*-aix[5-9]*)
+  powerpc64-*-aix[5-9]*)
     targ_cflags=-DAIX_WEAK_SUPPORT
     targ_defvec=rs6000_xcoff64_aix_vec
     targ_selvecs="rs6000_xcoff_vec"
@@ -1201,6 +1201,10 @@ case "${targ}" in
     targ_defvec=rx_elf32_le_vec
     targ_selvecs="rx_elf32_be_vec rx_elf32_le_vec rx_elf32_be_ns_vec"
     targ_underscore=yes
+    ;;
+  rx-*-linux*)
+    targ_defvec=rx_elf32_linux_le_vec
+    targ_selvecs="rx_elf32_linux_le_vec"
     ;;
 
   s390-*-linux*)

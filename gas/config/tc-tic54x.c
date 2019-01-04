@@ -1,5 +1,5 @@
 /* tc-tic54x.c -- Assembly code for the Texas Instruments TMS320C54X
-   Copyright (C) 1999-2018 Free Software Foundation, Inc.
+   Copyright (C) 1999-2019 Free Software Foundation, Inc.
    Contributed by Timothy Wall (twall@cygnus.com)
 
    This file is part of GAS, the GNU Assembler.
@@ -50,7 +50,6 @@
 #include "sb.h"
 #include "macro.h"
 #include "subsegs.h"
-#include "struc-symbol.h"
 #include "opcode/tic54x.h"
 #include "obj-coff.h"
 #include <math.h>
@@ -506,7 +505,7 @@ tic54x_bss (int x ATTRIBUTE_UNUSED)
   symbolP = symbol_find_or_make (name);
 
   if (S_GET_SEGMENT (symbolP) == bss_section)
-    symbolP->sy_frag->fr_symbol = (symbolS *) NULL;
+    symbol_get_frag (symbolP)->fr_symbol = (symbolS *) NULL;
 
   symbol_set_frag (symbolP, frag_now);
   p = frag_var (rs_org, 1, 1, (relax_substateT) 0, symbolP,

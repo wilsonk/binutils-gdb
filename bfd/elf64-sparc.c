@@ -1,5 +1,5 @@
 /* SPARC-specific support for 64-bit ELF
-   Copyright (C) 1993-2018 Free Software Foundation, Inc.
+   Copyright (C) 1993-2019 Free Software Foundation, Inc.
 
    This file is part of BFD, the Binary File Descriptor library.
 
@@ -97,12 +97,20 @@ elf64_sparc_slurp_one_reloc_table (bfd *abfd, asection *asect,
       else
 	relent->address = rela.r_offset - asect->vma;
 
-      if (ELF64_R_SYM (rela.r_info) == STN_UNDEF
-	  /* PR 17512: file: 996185f8.  */
-	  || (!dynamic && ELF64_R_SYM(rela.r_info) > bfd_get_symcount(abfd))
-	  || (dynamic
-	      && ELF64_R_SYM(rela.r_info) > bfd_get_dynamic_symcount(abfd)))
+      if (ELF64_R_SYM (rela.r_info) == STN_UNDEF)
 	relent->sym_ptr_ptr = bfd_abs_section_ptr->symbol_ptr_ptr;
+      else if (/* PR 17512: file: 996185f8.  */
+               (!dynamic && ELF64_R_SYM(rela.r_info) > bfd_get_symcount(abfd))
+               || (dynamic
+                   && ELF64_R_SYM(rela.r_info) > bfd_get_dynamic_symcount(abfd)))
+        {
+          _bfd_error_handler
+	    /* xgettext:c-format */
+	    (_("%pB(%pA): relocation %d has invalid symbol index %ld"),
+	     abfd, asect, i, (long) ELF64_R_SYM (rela.r_info));
+	  bfd_set_error (bfd_error_bad_value);
+	  relent->sym_ptr_ptr = bfd_abs_section_ptr->symbol_ptr_ptr;
+        }
       else
 	{
 	  asymbol **ps, *s;
@@ -573,29 +581,6 @@ elf64_sparc_output_arch_syms (bfd *output_bfd ATTRIBUTE_UNUSED,
   struct _bfd_sparc_elf_app_reg *app_regs =
     _bfd_sparc_elf_hash_table(info)->app_regs;
   Elf_Internal_Sym sym;
-
-  /* We arranged in size_dynamic_sections to put the STT_REGISTER entries
-     at the end of the dynlocal list, so they came at the end of the local
-     symbols in the symtab.  Except that they aren't STB_LOCAL, so we need
-     to back up symtab->sh_info.  */
-  if (elf_hash_table (info)->dynlocal)
-    {
-      bfd * dynobj = elf_hash_table (info)->dynobj;
-      asection *dynsymsec = bfd_get_linker_section (dynobj, ".dynsym");
-      struct elf_link_local_dynamic_entry *e;
-
-      for (e = elf_hash_table (info)->dynlocal; e ; e = e->next)
-	if (e->input_indx == -1)
-	  break;
-      if (e)
-	{
-	  elf_section_data (dynsymsec->output_section)->this_hdr.sh_info
-	    = e->dynindx;
-	}
-    }
-
-  if (info->strip == strip_all)
-    return TRUE;
 
   for (reg = 0; reg < 4; reg++)
     if (app_regs [reg].name != NULL)

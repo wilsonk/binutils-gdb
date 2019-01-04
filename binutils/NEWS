@@ -1,5 +1,36 @@
 -*- text -*-
 
+* The addr2line, c++filt, nm and objdump tools now have a limit on the
+  maximum amount of recursion that is allowed whilst demangling strings.
+  The value for this limit is defined by the DEMANGLE_RECRUSE_LIMIT
+  constant declared in the include/demangle.h header file.  At the time
+  of writing this constant has the value of 2048.
+
+  The --no-recurse-limit option can be used to remove the limit, restoring
+  the behaviour of earlier versions of these tools.  This may be needed in
+  order to dmangle truly complicated names, but it also leaves the tools
+  vulnerable to stack exhaustion from maliciously constructed mangled names.
+
+* Objdump's --disassemble option can now take a parameter, specifying the
+  starting symbol for disassembly.  Disassembly will continue from this
+  symbol up to the next symbol.
+
+* The MIPS port now supports the Loongson 2K1000 processor which implements
+  the MIPS64r2 ISA, the Loongson-mmi ASE, Loongson-cam ASE, Loongson-ext ASE,
+  Loongson-ext2 ASE and MSA ASE instructions. Add -march=gs264e option for
+  Loongson 2K1000 processor.
+
+* The MIPS port now supports the Loongson 3A2000/3A3000 processor which
+  implements the MIPS64r2 ISA, the Loongson-mmi ASE, Loongson-cam ASE,
+  Loongson-ext ASE and Loongson-ext2 ASE instructions. Add -march=gs464e
+  option for Loongson 3A2000/3A3000 processor.
+
+* The MIPS port now supports the Loongson 3A1000 processor, aka Loongson3a,
+  which implements the MIPS64r2 ISA, the Loongson-mmi ASE, Loongson-cam ASE
+  and Loongson-ext ASE instructions. Add -march=gs464 option for Loongson
+  3A1000 processor, The -march=loongson3a is an alias of -march=gs464 for
+  compatibility.
+
 Changes in 2.31:
 
 * Add support for disassembling netronome Flow Processor (NFP) firmware files.
@@ -609,7 +640,7 @@ Changes in binutils 2.1:
   and/or local symbols only.  They now also support long options.
 
 
-Copyright (C) 2012-2018 Free Software Foundation, Inc.
+Copyright (C) 2012-2019 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright
