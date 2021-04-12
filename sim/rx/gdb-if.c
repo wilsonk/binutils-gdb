@@ -1,6 +1,6 @@
 /* gdb-if.c -- sim interface to GDB.
 
-Copyright (C) 2008-2019 Free Software Foundation, Inc.
+Copyright (C) 2008-2021 Free Software Foundation, Inc.
 Contributed by Red Hat, Inc.
 
 This file is part of the GNU simulators.
@@ -164,14 +164,14 @@ build_swap_list (struct bfd *abfd)
 	  struct swap_list *sl;
 	  bfd_size_type size;
 
-	  size = bfd_get_section_size (s);
+	  size = bfd_section_size (s);
 	  if (size <= 0)
 	    continue;
 	  
 	  sl = malloc (sizeof (struct swap_list));
 	  assert (sl != NULL);
 	  sl->next = swap_list;
-	  sl->start = bfd_section_lma (abfd, s);
+	  sl->start = bfd_section_lma (s);
 	  sl->end = sl->start + size;
 	  swap_list = sl;
 	}
@@ -688,7 +688,7 @@ rx_signal_to_gdb_signal (int rx)
 
 /* Take a step return code RC and set up the variables consulted by
    sim_stop_reason appropriately.  */
-void
+static void
 handle_step (int rc)
 {
   if (execution_error_get_last_error () != SIM_ERR_NONE)
@@ -804,13 +804,13 @@ sim_do_command (SIM_DESC sd, const char *cmd)
     p++;
 
   /* Find the extent of the command word.  */
-  for (p = cmd; *p; p++)
+  for (; *p != '\0'; p++)
     if (isspace (*p))
       break;
 
   /* Null-terminate the command word, and record the start of any
      further arguments.  */
-  if (*p)
+  if (*p != '\0')
     {
       *p = '\0';
       args = p + 1;
@@ -851,6 +851,14 @@ sim_do_command (SIM_DESC sd, const char *cmd)
 
 char **
 sim_complete_command (SIM_DESC sd, const char *text, const char *word)
+{
+  return NULL;
+}
+
+/* Stub this out for now.  */
+
+char *
+sim_memory_map (SIM_DESC sd)
 {
   return NULL;
 }

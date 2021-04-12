@@ -1,6 +1,6 @@
 /* opc2c.c --- generate C simulator code from from .opc file
 
-Copyright (C) 2005-2019 Free Software Foundation, Inc.
+Copyright (C) 2005-2021 Free Software Foundation, Inc.
 Contributed by Red Hat, Inc.
 
 This file is part of the GNU simulators.
@@ -507,7 +507,6 @@ main (int argc, char **argv)
   FILE *in;
   int lineno = 0;
   int i;
-  VaryRef *vlist;
 
   if (argc > 2 && strcmp (argv[1], "-l") == 0)
     {
@@ -654,8 +653,6 @@ main (int argc, char **argv)
     indirect[i].type = T_unused;
 
   qsort (opcodes, n_opcodes, sizeof (opcodes[0]), op_cmp);
-
-  vlist = (VaryRef *) malloc (n_varies * sizeof (VaryRef));
 
   for (i = 0; i < n_opcodes; i++)
     {

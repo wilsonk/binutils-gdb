@@ -1,5 +1,5 @@
 /* m32r exception, interrupt, and trap (EIT) support
-   Copyright (C) 1998-2019 Free Software Foundation, Inc.
+   Copyright (C) 1998-2021 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
    This file is part of GDB, the GNU debugger.
@@ -20,6 +20,7 @@
 #include "sim-main.h"
 #include "sim-syscall.h"
 #include "targ-vals.h"
+#include <stdlib.h>
 
 #define TRAP_FLUSH_CACHE 12
 /* The semantic code invokes this for invalid (unrecognized) instructions.  */

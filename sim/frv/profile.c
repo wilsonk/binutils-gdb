@@ -1,6 +1,6 @@
 /* frv simulator machine independent profiling code.
 
-   Copyright (C) 1998-2019 Free Software Foundation, Inc.
+   Copyright (C) 1998-2021 Free Software Foundation, Inc.
    Contributed by Red Hat
 
 This file is part of the GNU simulators.
@@ -24,6 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "sim-main.h"
 #include "bfd.h"
+#include <stdlib.h>
 
 #if WITH_PROFILE_MODEL_P
 

@@ -1,4 +1,4 @@
-# Copyright (C) 2008-2019 Free Software Foundation, Inc.
+# Copyright (C) 2008-2021 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -55,6 +55,17 @@ class ContainerPrinter (object):
 
     def children(self):
         return _iterator(self.val['elements'], self.val['len'])
+
+    def display_hint (self):
+        if (self.val['is_map_p'] and self.val['is_array_p']):
+            raise Exception ("invalid object state found in display_hint")
+
+        if (self.val['is_map_p']):
+            return 'map'
+        elif (self.val['is_array_p']):
+            return 'array'
+        else:
+            return None
 
 # Treats a container as array.
 class ArrayPrinter (object):

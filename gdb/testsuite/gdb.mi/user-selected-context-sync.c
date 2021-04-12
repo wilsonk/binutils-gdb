@@ -1,6 +1,6 @@
 /* This testcase is part of GDB, the GNU debugger.
 
-   Copyright 2016-2019 Free Software Foundation, Inc.
+   Copyright 2016-2021 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -27,7 +27,10 @@ static pthread_barrier_t barrier;
 static void
 child_sub_function (void)
 {
-  while (1); /* thread loop line */
+  /* Deliberately spin on a variable instead of plain 'while (1)' to
+     avoid the Clang bug https://bugs.llvm.org/show_bug.cgi?id=49614.  */
+  int spin = 1;
+  while (spin); /* thread loop line */
 }
 
 static void *
@@ -57,7 +60,10 @@ main (void)
 
   pthread_barrier_wait (&barrier);
 
-  while (1); /* main break line */
+  /* Deliberately spin on a variable instead of plain 'while (1)' to
+     avoid the Clang bug https://bugs.llvm.org/show_bug.cgi?id=49614.  */
+  int spin = 1;
+  while (spin); /* main break line */
 
   return 0;
 }

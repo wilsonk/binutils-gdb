@@ -1,5 +1,5 @@
 /* Support code for various pieces of CGEN simulators.
-   Copyright (C) 1996-2019 Free Software Foundation, Inc.
+   Copyright (C) 1996-2021 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This file is part of GDB, the GNU debugger.
@@ -319,9 +319,7 @@ CONVDISI (val)
 #endif /* DI_FN_SUPPORT */
 
 QI
-RORQI (val, shift)
-     QI  val;
-     int shift;
+RORQI (QI val, int shift)
 {
   if (shift != 0)
     {
@@ -336,9 +334,7 @@ RORQI (val, shift)
 }
 
 QI
-ROLQI (val, shift)
-     QI  val;
-     int shift;
+ROLQI (QI val, int shift)
 {
   if (shift != 0)
     {
@@ -353,9 +349,7 @@ ROLQI (val, shift)
 }
 
 HI
-RORHI (val, shift)
-     HI  val;
-     int shift;
+RORHI (HI val, int shift)
 {
   if (shift != 0)
     {
@@ -370,9 +364,7 @@ RORHI (val, shift)
 }
 
 HI
-ROLHI (val, shift)
-     HI  val;
-     int shift;
+ROLHI (HI val, int shift)
 {
   if (shift != 0)
     {
@@ -387,9 +379,7 @@ ROLHI (val, shift)
 }
 
 SI
-RORSI (val, shift)
-     SI  val;
-     int shift;
+RORSI (SI val, int shift)
 {
   if (shift != 0)
     {
@@ -404,9 +394,7 @@ RORSI (val, shift)
 }
 
 SI
-ROLSI (val, shift)
-     SI  val;
-     int shift;
+ROLSI (SI val, int shift)
 {
   if (shift != 0)
     {

@@ -1,6 +1,6 @@
 /* simulator.c -- Interface for the AArch64 simulator.
 
-   Copyright (C) 2015-2019 Free Software Foundation, Inc.
+   Copyright (C) 2015-2021 Free Software Foundation, Inc.
 
    Contributed by Red Hat.
 
@@ -1650,10 +1650,10 @@ set_flags_for_add32 (sim_cpu *cpu, int32_t value1, int32_t value2)
   if (result & (1 << 31))
     flags |= N;
 
-  if (uresult != (uint32_t)result)
+  if (uresult != (uint32_t)uresult)
     flags |= C;
 
-  if (sresult != result)
+  if (sresult != (int32_t)sresult)
     flags |= V;
 
   aarch64_set_CPSR (cpu, flags);
@@ -13437,13 +13437,12 @@ br (sim_cpu *cpu)
 static void
 blr (sim_cpu *cpu)
 {
-  unsigned rn = INSTR (9, 5);
+  /* Ensure we read the destination before we write LR.  */
+  uint64_t target = aarch64_get_reg_u64 (cpu, INSTR (9, 5), NO_SP);
 
   TRACE_DECODE (cpu, "emulated at line %d", __LINE__);
-  /* The pseudo code in the spec says we update LR before fetching.
-     the value from the rn.  */
   aarch64_save_LR (cpu);
-  aarch64_set_next_PC (cpu, aarch64_get_reg_u64 (cpu, rn, NO_SP));
+  aarch64_set_next_PC (cpu, target);
 
   if (TRACE_BRANCH_P (cpu))
     {

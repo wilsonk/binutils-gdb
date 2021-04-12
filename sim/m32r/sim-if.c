@@ -1,5 +1,5 @@
 /* Main simulator entry points specific to the M32R.
-   Copyright (C) 1996-2019 Free Software Foundation, Inc.
+   Copyright (C) 1996-2021 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
    This file is part of GDB, the GNU debugger.
@@ -22,16 +22,8 @@
 #include "libiberty.h"
 #include "bfd.h"
 
-#ifdef HAVE_STRING_H
 #include <string.h>
-#else
-#ifdef HAVE_STRINGS_H
-#include <strings.h>
-#endif
-#endif
-#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
-#endif
 
 #include "dv-m32r_uart.h"
 
@@ -52,11 +44,8 @@ free_state (SIM_DESC sd)
 /* Create an instance of the simulator.  */
 
 SIM_DESC
-sim_open (kind, callback, abfd, argv)
-     SIM_OPEN_KIND kind;
-     host_callback *callback;
-     struct bfd *abfd;
-     char * const *argv;
+sim_open (SIM_OPEN_KIND kind, host_callback *callback, struct bfd *abfd,
+	  char * const *argv)
 {
   SIM_DESC sd = sim_state_alloc (kind, callback);
   char c;
@@ -68,15 +57,6 @@ sim_open (kind, callback, abfd, argv)
       free_state (sd);
       return 0;
     }
-
-#if 0 /* FIXME: pc is in mach-specific struct */
-  /* FIXME: watchpoints code shouldn't need this */
-  {
-    SIM_CPU *current_cpu = STATE_CPU (sd, 0);
-    STATE_WATCHPOINTS (sd)->pc = &(PC);
-    STATE_WATCHPOINTS (sd)->sizeof_pc = sizeof (PC);
-  }
-#endif
 
   if (sim_pre_argv_init (sd, argv[0]) != SIM_RC_OK)
     {
@@ -159,11 +139,8 @@ sim_open (kind, callback, abfd, argv)
 }
 
 SIM_RC
-sim_create_inferior (sd, abfd, argv, envp)
-     SIM_DESC sd;
-     struct bfd *abfd;
-     char * const *argv;
-     char * const *envp;
+sim_create_inferior (SIM_DESC sd, struct bfd *abfd, char * const *argv,
+		     char * const *envp)
 {
   SIM_CPU *current_cpu = STATE_CPU (sd, 0);
   SIM_ADDR addr;

@@ -1,5 +1,5 @@
 /* mips-opc.c -- MIPS opcode list.
-   Copyright (C) 1993-2019 Free Software Foundation, Inc.
+   Copyright (C) 1993-2021 Free Software Foundation, Inc.
    Contributed by Ralph Campbell and OSF
    Commented and modified by Ian Lance Taylor, Cygnus Support
    Extended for MIPS32 support by Anders Norlander, and by SiByte, Inc.
@@ -43,19 +43,19 @@ decode_mips_operand (const char *p)
     case '-':
       switch (p[1])
 	{
-	case 'a': INT_ADJ (19, 0, 262143, 2, FALSE);
-	case 'b': INT_ADJ (18, 0, 131071, 3, FALSE);
+	case 'a': INT_ADJ (19, 0, 262143, 2, false);
+	case 'b': INT_ADJ (18, 0, 131071, 3, false);
 	case 'd': SPECIAL (0, 0, REPEAT_DEST_REG);
 	case 'm': SPECIAL (20, 6, SAVE_RESTORE_LIST);
 	case 's': SPECIAL (5, 21, NON_ZERO_REG);
 	case 't': SPECIAL (5, 16, NON_ZERO_REG);
-	case 'u': PREV_CHECK (5, 16, TRUE, FALSE, FALSE, FALSE);
-	case 'v': PREV_CHECK (5, 16, TRUE, TRUE, FALSE, FALSE);
-	case 'w': PREV_CHECK (5, 16, FALSE, TRUE, TRUE, TRUE);
-	case 'x': PREV_CHECK (5, 21, TRUE, FALSE, FALSE, TRUE);
-	case 'y': PREV_CHECK (5, 21, FALSE, TRUE, FALSE, FALSE);
-	case 'A': PCREL (19, 0, TRUE, 2, 2, FALSE, FALSE);
-	case 'B': PCREL (18, 0, TRUE, 3, 3, FALSE, FALSE);
+	case 'u': PREV_CHECK (5, 16, true, false, false, false);
+	case 'v': PREV_CHECK (5, 16, true, true, false, false);
+	case 'w': PREV_CHECK (5, 16, false, true, true, true);
+	case 'x': PREV_CHECK (5, 21, true, false, false, true);
+	case 'y': PREV_CHECK (5, 21, false, true, false, false);
+	case 'A': PCREL (19, 0, true, 2, 2, false, false);
+	case 'B': PCREL (18, 0, true, 3, 3, false, false);
 	}
       break;
 
@@ -74,12 +74,12 @@ decode_mips_operand (const char *p)
 	case '0': REG (5, 16, VI);
 
 	case 'A': BIT (5, 6, 0);		/* (0 .. 31) */
-	case 'B': MSB (5, 11, 1, TRUE, 32);	/* (1 .. 32), 32-bit op */
-	case 'C': MSB (5, 11, 1, FALSE, 32);	/* (1 .. 32), 32-bit op */
+	case 'B': MSB (5, 11, 1, true, 32);	/* (1 .. 32), 32-bit op */
+	case 'C': MSB (5, 11, 1, false, 32);	/* (1 .. 32), 32-bit op */
 	case 'E': BIT (5, 6, 32);		/* (32 .. 63) */
-	case 'F': MSB (5, 11, 33, TRUE, 64);	/* (33 .. 64), 64-bit op */
-	case 'G': MSB (5, 11, 33, FALSE, 64);	/* (33 .. 64), 64-bit op */
-	case 'H': MSB (5, 11, 1, FALSE, 64);	/* (1 .. 32), 64-bit op */
+	case 'F': MSB (5, 11, 33, true, 64);	/* (33 .. 64), 64-bit op */
+	case 'G': MSB (5, 11, 33, false, 64);	/* (33 .. 64), 64-bit op */
+	case 'H': MSB (5, 11, 1, false, 64);	/* (1 .. 32), 64-bit op */
 	case 'I': UINT (2, 6);
 	case 'J': HINT (10, 11);
 	case 'K': SPECIAL (4, 21, VU0_MATCH_SUFFIX);
@@ -90,20 +90,20 @@ decode_mips_operand (const char *p)
 	case 'P': BIT (5, 6, 32);		/* (32 .. 63) */
 	case 'Q': SINT (10, 6);
 	case 'R': SPECIAL (0, 0, PC);
-	case 'S': MSB (5, 11, 0, FALSE, 63);	/* (0 .. 31), 64-bit op */
-	case 'T': INT_ADJ (10, 16, 511, 0, FALSE); /* (-512 .. 511) << 0 */
-	case 'U': INT_ADJ (10, 16, 511, 1, FALSE); /* (-512 .. 511) << 1 */
-	case 'V': INT_ADJ (10, 16, 511, 2, FALSE); /* (-512 .. 511) << 2 */
-	case 'W': INT_ADJ (10, 16, 511, 3, FALSE); /* (-512 .. 511) << 3 */
+	case 'S': MSB (5, 11, 0, false, 63);	/* (0 .. 31), 64-bit op */
+	case 'T': INT_ADJ (10, 16, 511, 0, false); /* (-512 .. 511) << 0 */
+	case 'U': INT_ADJ (10, 16, 511, 1, false); /* (-512 .. 511) << 1 */
+	case 'V': INT_ADJ (10, 16, 511, 2, false); /* (-512 .. 511) << 2 */
+	case 'W': INT_ADJ (10, 16, 511, 3, false); /* (-512 .. 511) << 3 */
 	case 'X': BIT (5, 16, 32);		/* (32 .. 63) */
 	case 'Z': REG (5, 0, FP);
 
 	case 'a': SINT (8, 6);
 	case 'b': SINT (8, 3);
-	case 'c': INT_ADJ (9, 6, 255, 4, FALSE); /* (-256 .. 255) << 4 */
+	case 'c': INT_ADJ (9, 6, 255, 4, false); /* (-256 .. 255) << 4 */
 	case 'd': REG (5, 6, MSA);
 	case 'e': REG (5, 11, MSA);
-	case 'f': INT_ADJ (15, 6, 32767, 3, TRUE);
+	case 'f': INT_ADJ (15, 6, 32767, 3, true);
 	case 'g': SINT (5, 6);
 	case 'h': REG (5, 16, MSA);
 	case 'i': JALX (26, 0, 2);
@@ -116,7 +116,7 @@ decode_mips_operand (const char *p)
 	case 'p': BIT (5, 6, 0);		/* (0 .. 31), 32-bit op */
 	case 'q': REG (0, 0, R5900_Q);
 	case 'r': REG (0, 0, R5900_R);
-	case 's': MSB (5, 11, 0, FALSE, 31);	/* (0 .. 31) */
+	case 's': MSB (5, 11, 0, false, 31);	/* (0 .. 31) */
 	case 't': REG (5, 16, COPRO);
 	case 'u': SPECIAL (3, 16, IMM_INDEX);
 	case 'v': SPECIAL (2, 16, IMM_INDEX);
@@ -392,6 +392,7 @@ decode_mips_operand (const char *p)
 
 /* MIPS Enhanced VA Scheme.  */
 #define EVA	ASE_EVA
+#define EVAR6	ASE_EVA_R6
 
 /* TLB invalidate instruction support.  */
 #define TLBINV	ASE_EVA
@@ -665,7 +666,7 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"aclr",		"\\,~(b)",	0x04070000, 0xfc1f8000,	RD_3|LM|SM|NODS,	0,		0,		MC,	0 },
 {"aclr",		"\\,A(b)",	0,    (int) M_ACLR_AB,	INSN_MACRO,		0,		0,		MC,	0 },
 {"add",			"d,v,t",	0x00000020, 0xfc0007ff,	WR_1|RD_2|RD_3,		0,		I1,		0,	0 },
-{"add",			"t,r,I",	0,    (int) M_ADD_I,	INSN_MACRO,		0,		I1,		0,	I37 },
+{"add",			"t,r,I",	0,    (int) M_ADD_I,	INSN_MACRO,		0,		I1,		0,	0 },
 {"add",			"D,S,T",	0x45c00000, 0xffe0003f,	WR_1|RD_2|RD_3|FP_S,	0,		IL2E,		0,	0 },
 {"add",			"D,S,T",	0x4b40000c, 0xffe0003f,	WR_1|RD_2|RD_3|FP_S,	0,		0,		LMMI,	0 },
 {"add.s",		"D,V,T",	0x46000000, 0xffe0003f,	WR_1|RD_2|RD_3|FP_S,	0,		I1,		0,	0 },
@@ -1014,7 +1015,7 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"cvt.pw.ps",		"D,S",		0x46c00024, 0xffff003f,	WR_1|RD_2|FP_S|FP_D,	0,		0,		M3D,	0 },
 {"dabs",		"d,v",		0,    (int) M_DABS,	INSN_MACRO,		0,		I3,		0,	0 },
 {"dadd",		"d,v,t",	0x0000002c, 0xfc0007ff, WR_1|RD_2|RD_3,		0,		I3,		0,	0 },
-{"dadd",		"t,r,I",	0,    (int) M_DADD_I,	INSN_MACRO,		0,		I3,		0,	I69 },
+{"dadd",		"t,r,I",	0,    (int) M_DADD_I,	INSN_MACRO,		0,		I3,		0,	0 },
 {"dadd",		"D,S,T",	0x45e00000, 0xffe0003f,	WR_1|RD_2|RD_3|FP_D,	0,		IL2E,		0,	0 },
 {"dadd",		"D,S,T",	0x4b60000c, 0xffe0003f,	WR_1|RD_2|RD_3|FP_D,	0,		0,		LMMI,	0 },
 {"daddi",		"t,r,j",	0x60000000, 0xfc000000, WR_1|RD_2,		0,		I3,		0,	I69 },
@@ -1172,7 +1173,7 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"dsrl",		"D,S,T",	0x45a00003, 0xffe0003f,	WR_1|RD_2|RD_3|FP_D,	0,		IL2E,		0,	0 },
 {"dsrl",		"D,S,T",	0x4b20000f, 0xffe0003f,	WR_1|RD_2|RD_3|FP_D,	0,		0,		LMMI,	0 },
 {"dsub",		"d,v,t",	0x0000002e, 0xfc0007ff,	WR_1|RD_2|RD_3,		0,		I3,		0,	0 },
-{"dsub",		"d,v,I",	0,    (int) M_DSUB_I,	INSN_MACRO,		0,		I3,		0,	I69 },
+{"dsub",		"d,v,I",	0,    (int) M_DSUB_I,	INSN_MACRO,		0,		I3,		0,	0 },
 {"dsub",		"D,S,T",	0x45e00001, 0xffe0003f,	WR_1|RD_2|RD_3|FP_D,	0,		IL2E,		0,	0 },
 {"dsub",		"D,S,T",	0x4b60000d, 0xffe0003f,	WR_1|RD_2|RD_3|FP_D,	0,		0,		LMMI,	0 },
 {"dsubu",		"d,v,t",	0x0000002f, 0xfc0007ff,	WR_1|RD_2|RD_3,		0,		I3,		0,	0 },
@@ -1300,6 +1301,10 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"lld",			"t,+j(b)",	0x7c000037, 0xfc00007f, WR_1|RD_3|LM,		0,		I69,		0,	0 },
 {"lld",			"t,o(b)",	0xd0000000, 0xfc000000, WR_1|RD_3|LM,		0,		I3,		0,	EE|I69 },
 {"lld",			"t,A(b)",	0,    (int) M_LLD_AB,	INSN_MACRO,		0,		I3,		0,	EE },
+{"lldp",		"t,d,s",	0x7c000077, 0xfc0007ff, WR_1|WR_2|RD_3|LM,	0,		I69,		0,	0 },
+{"lldp",		"t,d,A(b)",	0,    (int) M_LLDP_AB,	INSN_MACRO,		0,		I69,		0,	0 },
+{"llwp",		"t,d,s",	0x7c000076, 0xfc0007ff, WR_1|WR_2|RD_3|LM,	0,		I37,		0,	0 },
+{"llwp",		"t,d,A(b)",	0,    (int) M_LLWP_AB,	INSN_MACRO,		0,		I37,		0,	0 },
 {"lq",			"t,o(b)",	0x78000000, 0xfc000000, WR_1|RD_3|LM,		0,		MMI,		0,	0 },
 {"lq",			"t,A(b)",	0,    (int) M_LQ_AB,	INSN_MACRO,		0,		MMI,		0,	0 },
 {"lqc2",		"+7,o(b)",	0xd8000000, 0xfc000000,	RD_3|WR_C2|LM,		0,		EE,		0,	0 },
@@ -1781,6 +1786,7 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"remu",		"d,v,t",	0,    (int) M_REMU_3,	INSN_MACRO,		0,		I1,		0,	I37 },
 {"remu",		"d,v,I",	0,    (int) M_REMU_3I,	INSN_MACRO,		0,		I1,		0,	I37 },
 {"rdhwr",		"t,K",		0x7c00003b, 0xffe007ff, WR_1,			0,		I33,		0,	0 },
+{"rdhwr",		"t,K,+O",	0x7c00003b, 0xffe0063f, WR_1,			0,		I37,		0,	0 },
 {"rdpgpr",		"d,w",		0x41400000, 0xffe007ff, WR_1,			0,		I33,		0,	0 },
 /* rfe is moved below as it now conflicts with tlbgp */
 {"rnas.qh",		"X,Q",		0x78200025, 0xfc20f83f,	WR_1|RD_2|FP_D,		RD_MACC,	0,		MX,	0 },
@@ -1830,6 +1836,10 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"scd",			"t,+j(b)",	0x7c000027, 0xfc00007f, MOD_1|RD_3|SM,		0,		I69,		0,	0 },
 {"scd",			"t,o(b)",	0xf0000000, 0xfc000000, MOD_1|RD_3|SM,		0,		I3,		0,	EE|I69 },
 {"scd",			"t,A(b)",	0,    (int) M_SCD_AB,	INSN_MACRO,		0,		I3,		0,	EE },
+{"scdp",		"t,d,s",	0x7c000067, 0xfc0007ff, MOD_1|RD_2|RD_3|SM,	0,		I69,		0,	0 },
+{"scdp",		"t,d,A(b)",	0,    (int) M_SCDP_AB,	INSN_MACRO,		0,		I69,		0,	0 },
+{"scwp",		"t,d,s",	0x7c000066, 0xfc0007ff, MOD_1|RD_2|RD_3|SM,	0,		I37,		0,	0 },
+{"scwp",		"t,d,A(b)",	0,    (int) M_SCWP_AB,	INSN_MACRO,		0,		I37,		0,	0 },
 /* The macro has to be first to handle o32 correctly.  */
 {"sd",			"t,A(b)",	0,    (int) M_SD_AB,	INSN_MACRO,		0,		I1,		0,	0 },
 {"sd",			"t,o(b)",	0xfc000000, 0xfc000000,	RD_1|RD_3|SM,		0,		I3,		0,	0 },
@@ -1945,7 +1955,7 @@ const struct mips_opcode mips_builtin_opcodes[] =
 /* ssnop is at the start of the table.  */
 {"standby",		"",		0x42000021, 0xffffffff,	0,			0,		V1,		0,	0 },
 {"sub",			"d,v,t",	0x00000022, 0xfc0007ff,	WR_1|RD_2|RD_3,		0,		I1,		0,	0 },
-{"sub",			"d,v,I",	0,    (int) M_SUB_I,	INSN_MACRO,		0,		I1,		0,	I37 },
+{"sub",			"d,v,I",	0,    (int) M_SUB_I,	INSN_MACRO,		0,		I1,		0,	0 },
 {"sub",			"D,S,T",	0x45c00001, 0xffe0003f,	WR_1|RD_2|RD_3|FP_S,	0,		IL2E,		0,	0 },
 {"sub",			"D,S,T",	0x4b40000d, 0xffe0003f,	WR_1|RD_2|RD_3|FP_S,	0,		0,		LMMI,	0 },
 {"sub.d",		"D,V,T",	0x46200001, 0xffe0003f,	WR_1|RD_2|RD_3|FP_D,	0,		I1,		0,	SF },
@@ -2629,6 +2639,8 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"lhe",			"t,A(b)",	0,    (int) M_LHE_AB,	INSN_MACRO,		0,		0,		EVA,	0 },
 {"lle",			"t,+j(b)",	0x7c00002e, 0xfc00007f, WR_1|RD_3|LM,		0,		0,		EVA,	0 },
 {"lle",			"t,A(b)",	0,    (int) M_LLE_AB,	INSN_MACRO,		0,		0,		EVA,	0 },
+{"llwpe",		"t,d,s",	0x7c00006e, 0xfc0007ff,	WR_1|WR_2|RD_3|LM,	0,		0,		EVAR6,	0 },
+{"llwpe",		"t,d,A(b)",	0,    (int) M_LLWPE_AB,	INSN_MACRO,		0,		0,		EVAR6,	0 },
 {"lwe",			"t,+j(b)",	0x7c00002f, 0xfc00007f, WR_1|RD_3|LM,		0,		0,		EVA,	0 },
 {"lwe",			"t,A(b)",	0,    (int) M_LWE_AB,	INSN_MACRO,		0,		0,		EVA,	0 },
 {"lwle",		"t,+j(b)",	0x7c000019, 0xfc00007f, WR_1|RD_3|LM,		0,		0,		EVA,	I37 },
@@ -2639,6 +2651,8 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"sbe",			"t,A(b)",	0,    (int) M_SBE_AB,	INSN_MACRO,		0,		0,		EVA,	0 },
 {"sce",			"t,+j(b)",	0x7c00001e, 0xfc00007f, MOD_1|RD_3|SM,		0,		0,		EVA,	0 },
 {"sce",			"t,A(b)",	0,    (int) M_SCE_AB,	INSN_MACRO,		0,		0,		EVA,	0 },
+{"scwpe",		"t,d,s",	0x7c00005e, 0xfc0007ff,	MOD_1|RD_2|RD_3|SM,	0,		0,		EVAR6,	0 },
+{"scwpe",		"t,d,A(b)",	0,    (int) M_SCWPE_AB,	INSN_MACRO,		0,		0,		EVAR6,	0 },
 {"she",			"t,+j(b)",	0x7c00001d, 0xfc00007f, RD_1|RD_3|SM,		0,		0,		EVA,	0 },
 {"she",			"t,A(b)",	0,    (int) M_SHE_AB,	INSN_MACRO,		0,		0,		EVA,	0 },
 {"swe",			"t,+j(b)",	0x7c00001f, 0xfc00007f, RD_1|RD_3|SM,		0,		0,		EVA,	0 },
@@ -3257,7 +3271,7 @@ const struct mips_opcode mips_builtin_opcodes[] =
 /* MIPS r6.  */
 {"aui",			"t,s,u",	0x3c000000, 0xfc000000,	WR_1|RD_2,		0,		I37,		0,	0 },
 {"auipc",		"s,u",		0xec1e0000, 0xfc1f0000, WR_1,			RD_pc,		I37,		0,	0 },
-{"daui",		"t,s,u",	0x74000000, 0xfc000000,	WR_1|RD_2,		0,		I37,		0,	0 },
+{"daui",		"t,-s,u",	0x74000000, 0xfc000000,	WR_1|RD_2,		0,		I37,		0,	0 },
 {"dahi",		"s,-d,u",	0x04060000, 0xfc1f0000,	MOD_1,			0,		I69,		0,	0 },
 {"dati",		"s,-d,u",	0x041e0000, 0xfc1f0000,	MOD_1,			0,		I69,		0,	0 },
 

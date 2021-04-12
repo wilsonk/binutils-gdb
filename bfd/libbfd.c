@@ -1,5 +1,5 @@
 /* Assorted BFD support routines, only used internally.
-   Copyright (C) 1990-2019 Free Software Foundation, Inc.
+   Copyright (C) 1990-2021 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
    This file is part of BFD, the Binary File Descriptor library.
@@ -40,30 +40,30 @@ DESCRIPTION
 	completeness.
 */
 
-bfd_boolean
+bool
 _bfd_bool_bfd_false (bfd *abfd ATTRIBUTE_UNUSED)
 {
-  return FALSE;
+  return false;
 }
 
-bfd_boolean
+bool
 _bfd_bool_bfd_asymbol_false (bfd *abfd ATTRIBUTE_UNUSED,
 			     asymbol *sym ATTRIBUTE_UNUSED)
 {
-  return FALSE;
+  return false;
 }
 
 /* A routine which is used in target vectors for unsupported
    operations.  */
 
-bfd_boolean
+bool
 _bfd_bool_bfd_false_error (bfd *ignore ATTRIBUTE_UNUSED)
 {
   bfd_set_error (bfd_error_invalid_operation);
-  return FALSE;
+  return false;
 }
 
-bfd_boolean
+bool
 _bfd_bool_bfd_link_false_error (bfd *abfd,
 				struct bfd_link_info *info ATTRIBUTE_UNUSED)
 {
@@ -73,56 +73,56 @@ _bfd_bool_bfd_link_false_error (bfd *abfd,
 /* A routine which is used in target vectors for supported operations
    which do not actually do anything.  */
 
-bfd_boolean
+bool
 _bfd_bool_bfd_true (bfd *ignore ATTRIBUTE_UNUSED)
 {
-  return TRUE;
+  return true;
 }
 
-bfd_boolean
+bool
 _bfd_bool_bfd_link_true (bfd *abfd ATTRIBUTE_UNUSED,
 			 struct bfd_link_info *info ATTRIBUTE_UNUSED)
 {
-  return TRUE;
+  return true;
 }
 
-bfd_boolean
+bool
 _bfd_bool_bfd_bfd_true (bfd *ibfd ATTRIBUTE_UNUSED,
 			bfd *obfd ATTRIBUTE_UNUSED)
 {
-  return TRUE;
+  return true;
 }
 
-bfd_boolean
+bool
 _bfd_bool_bfd_uint_true (bfd *abfd ATTRIBUTE_UNUSED,
 			 unsigned int flags ATTRIBUTE_UNUSED)
 {
-  return TRUE;
+  return true;
 }
 
-bfd_boolean
+bool
 _bfd_bool_bfd_asection_bfd_asection_true (bfd *ibfd ATTRIBUTE_UNUSED,
 					  asection *isec ATTRIBUTE_UNUSED,
 					  bfd *obfd ATTRIBUTE_UNUSED,
 					  asection *osec ATTRIBUTE_UNUSED)
 {
-  return TRUE;
+  return true;
 }
 
-bfd_boolean
+bool
 _bfd_bool_bfd_asymbol_bfd_asymbol_true (bfd *ibfd ATTRIBUTE_UNUSED,
 					asymbol *isym ATTRIBUTE_UNUSED,
 					bfd *obfd ATTRIBUTE_UNUSED,
 					asymbol *osym ATTRIBUTE_UNUSED)
 {
-  return TRUE;
+  return true;
 }
 
-bfd_boolean
+bool
 _bfd_bool_bfd_ptr_true (bfd *abfd ATTRIBUTE_UNUSED,
 			void *ptr ATTRIBUTE_UNUSED)
 {
-  return TRUE;
+  return true;
 }
 
 /* A routine which is used in target vectors for unsupported
@@ -206,13 +206,13 @@ _bfd_norelocs_set_reloc (bfd *abfd ATTRIBUTE_UNUSED,
   /* Do nothing.  */
 }
 
-bfd_boolean
+bool
 _bfd_nocore_core_file_matches_executable_p
   (bfd *ignore_core_bfd ATTRIBUTE_UNUSED,
    bfd *ignore_exec_bfd ATTRIBUTE_UNUSED)
 {
   bfd_set_error (bfd_error_invalid_operation);
-  return FALSE;
+  return false;
 }
 
 /* Routine to handle core_file_failing_command entry point for targets
@@ -245,7 +245,7 @@ _bfd_nocore_core_file_pid (bfd *ignore_abfd ATTRIBUTE_UNUSED)
   return 0;
 }
 
-const bfd_target *
+bfd_cleanup
 _bfd_dummy_target (bfd *ignore_abfd ATTRIBUTE_UNUSED)
 {
   bfd_set_error (bfd_error_wrong_format);
@@ -279,24 +279,6 @@ bfd_malloc (bfd_size_type size)
   return ptr;
 }
 
-/* Allocate memory using malloc, nmemb * size with overflow checking.  */
-
-void *
-bfd_malloc2 (bfd_size_type nmemb, bfd_size_type size)
-{
-  if ((nmemb | size) >= HALF_BFD_SIZE_TYPE
-      && size != 0
-      && nmemb > ~(bfd_size_type) 0 / size)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return NULL;
-    }
-
-  return bfd_malloc (size * nmemb);
-}
-
-/* Reallocate memory using realloc.  */
-
 void *
 bfd_realloc (void *ptr, bfd_size_type size)
 {
@@ -322,22 +304,6 @@ bfd_realloc (void *ptr, bfd_size_type size)
   return ret;
 }
 
-/* Reallocate memory using realloc, nmemb * size with overflow checking.  */
-
-void *
-bfd_realloc2 (void *ptr, bfd_size_type nmemb, bfd_size_type size)
-{
-  if ((nmemb | size) >= HALF_BFD_SIZE_TYPE
-      && size != 0
-      && nmemb > ~(bfd_size_type) 0 / size)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return NULL;
-    }
-
-  return bfd_realloc (ptr, size * nmemb);
-}
-
 /* Reallocate memory using realloc.
    If this fails the pointer is freed before returning.  */
 
@@ -346,7 +312,7 @@ bfd_realloc_or_free (void *ptr, bfd_size_type size)
 {
   void *ret = bfd_realloc (ptr, size);
 
-  if (ret == NULL && ptr != NULL)
+  if (ret == NULL)
     free (ptr);
 
   return ret;
@@ -365,31 +331,12 @@ bfd_zmalloc (bfd_size_type size)
   return ptr;
 }
 
-/* Allocate memory using malloc (nmemb * size) with overflow checking
-   and clear it.  */
-
-void *
-bfd_zmalloc2 (bfd_size_type nmemb, bfd_size_type size)
-{
-  void *ptr = bfd_malloc2 (nmemb, size);
-
-  if (ptr != NULL)
-    {
-      size_t sz = nmemb * size;
-
-      if (sz > 0)
-	memset (ptr, 0, sz);
-    }
-
-  return ptr;
-}
-
 /*
 INTERNAL_FUNCTION
 	bfd_write_bigendian_4byte_int
 
 SYNOPSIS
-	bfd_boolean bfd_write_bigendian_4byte_int (bfd *, unsigned int);
+	bool bfd_write_bigendian_4byte_int (bfd *, unsigned int);
 
 DESCRIPTION
 	Write a 4 byte integer @var{i} to the output BFD @var{abfd}, in big
@@ -397,7 +344,7 @@ DESCRIPTION
 	archives.
 
 */
-bfd_boolean
+bool
 bfd_write_bigendian_4byte_int (bfd *abfd, unsigned int i)
 {
   bfd_byte buffer[4];
@@ -449,9 +396,9 @@ DESCRIPTION
 .#define bfd_put_signed_8 \
 .  bfd_put_8
 .#define bfd_get_8(abfd, ptr) \
-.  (*(const unsigned char *) (ptr) & 0xff)
+.  ((bfd_vma) *(const unsigned char *) (ptr) & 0xff)
 .#define bfd_get_signed_8(abfd, ptr) \
-.  (((*(const unsigned char *) (ptr) & 0xff) ^ 0x80) - 0x80)
+.  ((((bfd_signed_vma) *(const unsigned char *) (ptr) & 0xff) ^ 0x80) - 0x80)
 .
 .#define bfd_put_16(abfd, val, ptr) \
 .  BFD_SEND (abfd, bfd_putx16, ((val),(ptr)))
@@ -495,7 +442,7 @@ DESCRIPTION
 .  BFD_SEND (abfd, bfd_getx_signed_64, (ptr))
 .
 .#define bfd_get(bits, abfd, ptr)			\
-.  ((bits) == 8 ? (bfd_vma) bfd_get_8 (abfd, ptr)	\
+.  ((bits) == 8 ? bfd_get_8 (abfd, ptr)			\
 .   : (bits) == 16 ? bfd_get_16 (abfd, ptr)		\
 .   : (bits) == 32 ? bfd_get_32 (abfd, ptr)		\
 .   : (bits) == 64 ? bfd_get_64 (abfd, ptr)		\
@@ -875,7 +822,7 @@ bfd_putl64 (bfd_uint64_t data ATTRIBUTE_UNUSED, void *p ATTRIBUTE_UNUSED)
 }
 
 void
-bfd_put_bits (bfd_uint64_t data, void *p, int bits, bfd_boolean big_p)
+bfd_put_bits (bfd_uint64_t data, void *p, int bits, bool big_p)
 {
   bfd_byte *addr = (bfd_byte *) p;
   int i;
@@ -895,7 +842,7 @@ bfd_put_bits (bfd_uint64_t data, void *p, int bits, bfd_boolean big_p)
 }
 
 bfd_uint64_t
-bfd_get_bits (const void *p, int bits, bfd_boolean big_p)
+bfd_get_bits (const void *p, int bits, bool big_p)
 {
   const bfd_byte *addr = (const bfd_byte *) p;
   bfd_uint64_t data;
@@ -919,7 +866,7 @@ bfd_get_bits (const void *p, int bits, bfd_boolean big_p)
 
 /* Default implementation */
 
-bfd_boolean
+bool
 _bfd_generic_get_section_contents (bfd *abfd,
 				   sec_ptr section,
 				   void *location,
@@ -928,7 +875,7 @@ _bfd_generic_get_section_contents (bfd *abfd,
 {
   bfd_size_type sz;
   if (count == 0)
-    return TRUE;
+    return true;
 
   if (section->compress_status != COMPRESS_SECTION_NONE)
     {
@@ -937,7 +884,7 @@ _bfd_generic_get_section_contents (bfd *abfd,
 	(_("%pB: unable to get decompressed section %pA"),
 	 abfd, section);
       bfd_set_error (bfd_error_invalid_operation);
-      return FALSE;
+      return false;
     }
 
   /* We do allow reading of a section after bfd_final_link has
@@ -957,17 +904,17 @@ _bfd_generic_get_section_contents (bfd *abfd,
 	      > arelt_size (abfd))))
     {
       bfd_set_error (bfd_error_invalid_operation);
-      return FALSE;
+      return false;
     }
 
   if (bfd_seek (abfd, section->filepos + offset, SEEK_SET) != 0
       || bfd_bread (location, count, abfd) != count)
-    return FALSE;
+    return false;
 
-  return TRUE;
+  return true;
 }
 
-bfd_boolean
+bool
 _bfd_generic_get_section_contents_in_window
   (bfd *abfd ATTRIBUTE_UNUSED,
    sec_ptr section ATTRIBUTE_UNUSED,
@@ -979,7 +926,7 @@ _bfd_generic_get_section_contents_in_window
   bfd_size_type sz;
 
   if (count == 0)
-    return TRUE;
+    return true;
   if (abfd->xvec->_bfd_get_section_contents
       != _bfd_generic_get_section_contents)
     {
@@ -991,13 +938,13 @@ _bfd_generic_get_section_contents_in_window
       bfd_free_window (w);
       w->i = bfd_zmalloc (sizeof (bfd_window_internal));
       if (w->i == NULL)
-	return FALSE;
+	return false;
       w->i->data = bfd_malloc (count);
       if (w->i->data == NULL)
 	{
 	  free (w->i);
 	  w->i = NULL;
-	  return FALSE;
+	  return false;
 	}
       w->i->mapped = 0;
       w->i->refcount = 1;
@@ -1016,9 +963,9 @@ _bfd_generic_get_section_contents_in_window
 	  && ((ufile_ptr) section->filepos + offset + count
 	      > arelt_size (abfd)))
       || ! bfd_get_file_window (abfd, section->filepos + offset, count, w,
-				TRUE))
-    return FALSE;
-  return TRUE;
+				true))
+    return false;
+  return true;
 #else
   abort ();
 #endif
@@ -1028,7 +975,7 @@ _bfd_generic_get_section_contents_in_window
    NEW sections is disallowed.  It is useful in patching existing sections
    in read-write files, though.  See other set_section_contents functions
    to see why it doesn't work for new sections.  */
-bfd_boolean
+bool
 _bfd_generic_set_section_contents (bfd *abfd,
 				   sec_ptr section,
 				   const void *location,
@@ -1036,13 +983,13 @@ _bfd_generic_set_section_contents (bfd *abfd,
 				   bfd_size_type count)
 {
   if (count == 0)
-    return TRUE;
+    return true;
 
   if (bfd_seek (abfd, section->filepos + offset, SEEK_SET) != 0
       || bfd_bwrite (location, count, abfd) != count)
-    return FALSE;
+    return false;
 
-  return TRUE;
+  return true;
 }
 
 /*
@@ -1071,7 +1018,7 @@ bfd_log2 (bfd_vma x)
   return result;
 }
 
-bfd_boolean
+bool
 bfd_generic_is_local_label_name (bfd *abfd, const char *name)
 {
   char locals_prefix = (bfd_get_symbol_leading_char (abfd) == '_') ? 'L' : '.';
@@ -1127,8 +1074,11 @@ _bfd_read_unsigned_leb128 (bfd *abfd ATTRIBUTE_UNUSED,
       byte = bfd_get_8 (abfd, buf);
       buf++;
       num_read++;
-      result |= (((bfd_vma) byte & 0x7f) << shift);
-      shift += 7;
+      if (shift < 8 * sizeof (result))
+	{
+	  result |= (((bfd_vma) byte & 0x7f) << shift);
+	  shift += 7;
+	}
     }
   while (byte & 0x80);
   *bytes_read_ptr = num_read;
@@ -1144,7 +1094,7 @@ bfd_vma
 _bfd_safe_read_leb128 (bfd *abfd ATTRIBUTE_UNUSED,
 		       bfd_byte *data,
 		       unsigned int *length_return,
-		       bfd_boolean sign,
+		       bool sign,
 		       const bfd_byte * const end)
 {
   bfd_vma result = 0;
@@ -1157,10 +1107,11 @@ _bfd_safe_read_leb128 (bfd *abfd ATTRIBUTE_UNUSED,
       byte = bfd_get_8 (abfd, data);
       data++;
       num_read++;
-
-      result |= ((bfd_vma) (byte & 0x7f)) << shift;
-
-      shift += 7;
+      if (shift < 8 * sizeof (result))
+	{
+	  result |= ((bfd_vma) (byte & 0x7f)) << shift;
+	  shift += 7;
+	}
       if ((byte & 0x80) == 0)
 	break;
     }
@@ -1194,8 +1145,11 @@ _bfd_read_signed_leb128 (bfd *abfd ATTRIBUTE_UNUSED,
       byte = bfd_get_8 (abfd, buf);
       buf ++;
       num_read ++;
-      result |= (((bfd_vma) byte & 0x7f) << shift);
-      shift += 7;
+      if (shift < 8 * sizeof (result))
+	{
+	  result |= (((bfd_vma) byte & 0x7f) << shift);
+	  shift += 7;
+	}
     }
   while (byte & 0x80);
   if (shift < 8 * sizeof (result) && (byte & 0x40))
@@ -1204,12 +1158,36 @@ _bfd_read_signed_leb128 (bfd *abfd ATTRIBUTE_UNUSED,
   return result;
 }
 
-bfd_boolean
+/* Write VAL in uleb128 format to P.
+   END indicates the last byte of allocated space for the uleb128 value to fit
+   in.
+   Return a pointer to the byte following the last byte that was written, or
+   NULL if the uleb128 value does not fit in the allocated space between P and
+   END.  */
+bfd_byte *
+_bfd_write_unsigned_leb128 (bfd_byte *p, bfd_byte *end, bfd_vma val)
+{
+  bfd_byte c;
+  do
+    {
+      if (p > end)
+	return NULL;
+      c = val & 0x7f;
+      val >>= 7;
+      if (val)
+	c |= 0x80;
+      *(p++) = c;
+    }
+  while (val);
+  return p;
+}
+
+bool
 _bfd_generic_init_private_section_data (bfd *ibfd ATTRIBUTE_UNUSED,
 					asection *isec ATTRIBUTE_UNUSED,
 					bfd *obfd ATTRIBUTE_UNUSED,
 					asection *osec ATTRIBUTE_UNUSED,
 					struct bfd_link_info *link_info ATTRIBUTE_UNUSED)
 {
-  return TRUE;
+  return true;
 }

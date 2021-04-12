@@ -1,6 +1,6 @@
 /* C/C++ language support for compilation.
 
-   Copyright (C) 2014-2019 Free Software Foundation, Inc.
+   Copyright (C) 2014-2021 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -22,13 +22,14 @@
 #include "compile-c.h"
 #include "compile-cplus.h"
 #include "compile.h"
-#include "gdb-dlfcn.h"
 #include "c-lang.h"
 #include "macrotab.h"
 #include "macroscope.h"
 #include "regcache.h"
-#include "common/function-view.h"
-#include "common/preprocessor.h"
+#include "gdbsupport/function-view.h"
+#include "gdbsupport/gdb-dlfcn.h"
+#include "gdbsupport/preprocessor.h"
+#include "gdbarch.h"
 
 /* See compile-internal.h.  */
 
@@ -98,7 +99,7 @@ load_libcompile (const char *fe_libcc, const char *fe_context)
 
 template <typename INSTTYPE, typename FUNCTYPE, typename CTXTYPE,
 	  typename BASE_VERSION_TYPE, typename API_VERSION_TYPE>
-compile_instance *
+std::unique_ptr<compile_instance>
 get_compile_context (const char *fe_libcc, const char *fe_context,
 		     BASE_VERSION_TYPE base_version,
 		     API_VERSION_TYPE api_version)
@@ -117,12 +118,12 @@ get_compile_context (const char *fe_libcc, const char *fe_context,
     error (_("The loaded version of GCC does not support the required version "
 	     "of the API."));
 
-  return new INSTTYPE (context);
+  return std::unique_ptr<compile_instance> (new INSTTYPE (context));
 }
 
 /* A C-language implementation of get_compile_context.  */
 
-compile_instance *
+std::unique_ptr<compile_instance>
 c_get_compile_context ()
 {
   return get_compile_context
@@ -134,7 +135,7 @@ c_get_compile_context ()
 
 /* A C++-language implementation of get_compile_context.  */
 
-compile_instance *
+std::unique_ptr<compile_instance>
 cplus_get_compile_context ()
 {
   return get_compile_context
@@ -212,7 +213,7 @@ write_macro_definitions (const struct block *block, CORE_ADDR pc,
 
 static void
 generate_register_struct (struct ui_file *stream, struct gdbarch *gdbarch,
-			  const unsigned char *registers_used)
+			  const std::vector<bool> &registers_used)
 {
   int i;
   int seen = 0;
@@ -220,7 +221,7 @@ generate_register_struct (struct ui_file *stream, struct gdbarch *gdbarch,
   fputs_unfiltered ("struct " COMPILE_I_SIMPLE_REGISTER_STRUCT_TAG " {\n",
 		    stream);
 
-  if (registers_used != NULL)
+  if (!registers_used.empty ())
     for (i = 0; i < gdbarch_num_regs (gdbarch); ++i)
       {
 	if (registers_used[i])
@@ -241,7 +242,7 @@ generate_register_struct (struct ui_file *stream, struct gdbarch *gdbarch,
 	       maximally-aligned array of the correct size.  */
 
 	    fputs_unfiltered ("  ", stream);
-	    switch (TYPE_CODE (regtype))
+	    switch (regtype->code ())
 	      {
 	      case TYPE_CODE_PTR:
 		fprintf_filtered (stream, "__gdb_uintptr %s",
@@ -255,7 +256,7 @@ generate_register_struct (struct ui_file *stream, struct gdbarch *gdbarch,
 
 		  if (mode != NULL)
 		    {
-		      if (TYPE_UNSIGNED (regtype))
+		      if (regtype->is_unsigned ())
 			fputs_unfiltered ("unsigned ", stream);
 		      fprintf_unfiltered (stream,
 					  "int %s"
@@ -270,11 +271,11 @@ generate_register_struct (struct ui_file *stream, struct gdbarch *gdbarch,
 
 	      default:
 		fprintf_unfiltered (stream,
-				    "  unsigned char %s[%d]"
+				    "  unsigned char %s[%s]"
 				    " __attribute__((__aligned__("
 				    "__BIGGEST_ALIGNMENT__)))",
 				    regname.c_str (),
-				    TYPE_LENGTH (regtype));
+				    pulongest (TYPE_LENGTH (regtype)));
 	      }
 	    fputs_unfiltered (";\n", stream);
 	  }
@@ -571,7 +572,7 @@ public:
 	   before generating the function header, so we can define the
 	   register struct before the function body.  This requires a
 	   temporary stream.  */
-	gdb::unique_xmalloc_ptr<unsigned char> registers_used
+	std::vector<bool> registers_used
 	  = generate_c_for_variable_locations (m_instance, &var_stream, m_arch,
 					       expr_block, expr_pc);
 
@@ -594,7 +595,7 @@ public:
 			mode, mode);
 	  }
 
-	generate_register_struct (&buf, m_arch, registers_used.get ());
+	generate_register_struct (&buf, m_arch, registers_used);
       }
 
     AddCodeHeaderPolicy::add_code_header (m_instance->scope (), &buf);
@@ -659,7 +660,7 @@ typedef compile_program<compile_cplus_instance,
 			cplus_add_code_header, c_add_code_footer,
 			cplus_add_input> cplus_compile_program;
 
-/* The la_compute_program method for C.  */
+/* The compute_program method for C.  */
 
 std::string
 c_compute_program (compile_instance *inst,
@@ -674,7 +675,7 @@ c_compute_program (compile_instance *inst,
   return program.compute (input, expr_block, expr_pc);
 }
 
-/* The la_compute_program method for C++.  */
+/* The compute_program method for C++.  */
 
 std::string
 cplus_compute_program (compile_instance *inst,

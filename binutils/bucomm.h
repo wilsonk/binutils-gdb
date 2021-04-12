@@ -1,5 +1,5 @@
 /* bucomm.h -- binutils common include file.
-   Copyright (C) 1991-2019 Free Software Foundation, Inc.
+   Copyright (C) 1991-2021 Free Software Foundation, Inc.
 
    This file is part of GNU Binutils.
 
@@ -49,16 +49,16 @@ void list_supported_architectures (const char *, FILE *);
 
 int display_info (void);
 
-void print_arelt_descr (FILE *, bfd *, bfd_boolean, bfd_boolean);
+void print_arelt_descr (FILE *, bfd *, bool, bool);
 
-char *make_tempname (char *);
-char *make_tempdir (char *);
+char *make_tempname (const char *, int *);
+char *make_tempdir (const char *);
 
 bfd_vma parse_vma (const char *, const char *);
 
 off_t get_file_size (const char *);
 
-bfd_boolean is_valid_archive_path (char const *);
+bool is_valid_archive_path (char const *);
 
 extern char *program_name;
 
@@ -71,7 +71,9 @@ extern void print_version (const char *);
 /* In rename.c.  */
 extern void set_times (const char *, const struct stat *);
 
-extern int smart_rename (const char *, const char *, int);
+extern int smart_rename (const char *, const char *, int,
+			 struct stat *, bool);
+
 
 /* In libiberty.  */
 void *xmalloc (size_t);

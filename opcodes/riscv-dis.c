@@ -1,5 +1,5 @@
 /* RISC-V disassembler
-   Copyright (C) 2011-2019 Free Software Foundation, Inc.
+   Copyright (C) 2011-2021 Free Software Foundation, Inc.
 
    Contributed by Andrew Waterman (andrew@sifive.com).
    Based on MIPS target.
@@ -27,9 +27,12 @@
 #include "opintl.h"
 #include "elf-bfd.h"
 #include "elf/riscv.h"
+#include "cpu-riscv.h"
 
-#include "bfd_stdint.h"
+#include <stdint.h>
 #include <ctype.h>
+
+static enum riscv_spec_class default_priv_spec = PRIV_SPEC_CLASS_NONE;
 
 struct riscv_private_data
 {
@@ -41,8 +44,8 @@ struct riscv_private_data
 static const char * const *riscv_gpr_names;
 static const char * const *riscv_fpr_names;
 
-/* Other options.  */
-static int no_aliases;	/* If set disassemble as most general inst.  */
+/* If set, disassemble as most general instruction.  */
+static int no_aliases;
 
 static void
 set_default_riscv_dis_options (void)
@@ -52,8 +55,8 @@ set_default_riscv_dis_options (void)
   no_aliases = 0;
 }
 
-static void
-parse_riscv_dis_option (const char *option)
+static bool
+parse_riscv_dis_option_without_args (const char *option)
 {
   if (strcmp (option, "no-aliases") == 0)
     no_aliases = 1;
@@ -61,6 +64,57 @@ parse_riscv_dis_option (const char *option)
     {
       riscv_gpr_names = riscv_gpr_names_numeric;
       riscv_fpr_names = riscv_fpr_names_numeric;
+    }
+  else
+    return false;
+  return true;
+}
+
+static void
+parse_riscv_dis_option (const char *option)
+{
+  char *equal, *value;
+
+  if (parse_riscv_dis_option_without_args (option))
+    return;
+
+  equal = strchr (option, '=');
+  if (equal == NULL)
+    {
+      /* The option without '=' should be defined above.  */
+      opcodes_error_handler (_("unrecognized disassembler option: %s"), option);
+      return;
+    }
+  if (equal == option
+      || *(equal + 1) == '\0')
+    {
+      /* Invalid options with '=', no option name before '=',
+       and no value after '='.  */
+      opcodes_error_handler (_("unrecognized disassembler option with '=': %s"),
+                            option);
+      return;
+    }
+
+  *equal = '\0';
+  value = equal + 1;
+  if (strcmp (option, "priv-spec") == 0)
+    {
+      enum riscv_spec_class priv_spec = PRIV_SPEC_CLASS_NONE;
+      const char *name = NULL;
+
+      RISCV_GET_PRIV_SPEC_CLASS (value, priv_spec);
+      if (priv_spec == PRIV_SPEC_CLASS_NONE)
+	opcodes_error_handler (_("unknown privileged spec set by %s=%s"),
+			       option, value);
+      else if (default_priv_spec == PRIV_SPEC_CLASS_NONE)
+	default_priv_spec = priv_spec;
+      else if (default_priv_spec != priv_spec)
+	{
+	  RISCV_GET_PRIV_SPEC_NAME (name, default_priv_spec);
+	  opcodes_error_handler (_("mis-matched privilege spec set by %s=%s, "
+				   "the elf privilege attribute is %s"),
+				 option, value, name);
+	}
     }
   else
     {
@@ -130,80 +184,77 @@ print_insn_args (const char *d, insn_t l, bfd_vma pc, disassemble_info *info)
 	case 'C': /* RVC */
 	  switch (*++d)
 	    {
-	    case 's': /* RS1 x8-x15 */
-	    case 'w': /* RS1 x8-x15 */
+	    case 's': /* RS1 x8-x15.  */
+	    case 'w': /* RS1 x8-x15.  */
 	      print (info->stream, "%s",
 		     riscv_gpr_names[EXTRACT_OPERAND (CRS1S, l) + 8]);
 	      break;
-	    case 't': /* RS2 x8-x15 */
-	    case 'x': /* RS2 x8-x15 */
+	    case 't': /* RS2 x8-x15.  */
+	    case 'x': /* RS2 x8-x15.  */
 	      print (info->stream, "%s",
 		     riscv_gpr_names[EXTRACT_OPERAND (CRS2S, l) + 8]);
 	      break;
-	    case 'U': /* RS1, constrained to equal RD */
+	    case 'U': /* RS1, constrained to equal RD.  */
 	      print (info->stream, "%s", riscv_gpr_names[rd]);
 	      break;
-	    case 'c': /* RS1, constrained to equal sp */
+	    case 'c': /* RS1, constrained to equal sp.  */
 	      print (info->stream, "%s", riscv_gpr_names[X_SP]);
 	      break;
 	    case 'V': /* RS2 */
 	      print (info->stream, "%s",
 		     riscv_gpr_names[EXTRACT_OPERAND (CRS2, l)]);
 	      break;
-	    case 'i':
-	      print (info->stream, "%d", (int)EXTRACT_RVC_SIMM3 (l));
-	      break;
 	    case 'o':
 	    case 'j':
-	      print (info->stream, "%d", (int)EXTRACT_RVC_IMM (l));
+	      print (info->stream, "%d", (int)EXTRACT_CITYPE_IMM (l));
 	      break;
 	    case 'k':
-	      print (info->stream, "%d", (int)EXTRACT_RVC_LW_IMM (l));
+	      print (info->stream, "%d", (int)EXTRACT_CLTYPE_LW_IMM (l));
 	      break;
 	    case 'l':
-	      print (info->stream, "%d", (int)EXTRACT_RVC_LD_IMM (l));
+	      print (info->stream, "%d", (int)EXTRACT_CLTYPE_LD_IMM (l));
 	      break;
 	    case 'm':
-	      print (info->stream, "%d", (int)EXTRACT_RVC_LWSP_IMM (l));
+	      print (info->stream, "%d", (int)EXTRACT_CITYPE_LWSP_IMM (l));
 	      break;
 	    case 'n':
-	      print (info->stream, "%d", (int)EXTRACT_RVC_LDSP_IMM (l));
+	      print (info->stream, "%d", (int)EXTRACT_CITYPE_LDSP_IMM (l));
 	      break;
 	    case 'K':
-	      print (info->stream, "%d", (int)EXTRACT_RVC_ADDI4SPN_IMM (l));
+	      print (info->stream, "%d", (int)EXTRACT_CIWTYPE_ADDI4SPN_IMM (l));
 	      break;
 	    case 'L':
-	      print (info->stream, "%d", (int)EXTRACT_RVC_ADDI16SP_IMM (l));
+	      print (info->stream, "%d", (int)EXTRACT_CITYPE_ADDI16SP_IMM (l));
 	      break;
 	    case 'M':
-	      print (info->stream, "%d", (int)EXTRACT_RVC_SWSP_IMM (l));
+	      print (info->stream, "%d", (int)EXTRACT_CSSTYPE_SWSP_IMM (l));
 	      break;
 	    case 'N':
-	      print (info->stream, "%d", (int)EXTRACT_RVC_SDSP_IMM (l));
+	      print (info->stream, "%d", (int)EXTRACT_CSSTYPE_SDSP_IMM (l));
 	      break;
 	    case 'p':
-	      info->target = EXTRACT_RVC_B_IMM (l) + pc;
+	      info->target = EXTRACT_CBTYPE_IMM (l) + pc;
 	      (*info->print_address_func) (info->target, info);
 	      break;
 	    case 'a':
-	      info->target = EXTRACT_RVC_J_IMM (l) + pc;
+	      info->target = EXTRACT_CJTYPE_IMM (l) + pc;
 	      (*info->print_address_func) (info->target, info);
 	      break;
 	    case 'u':
 	      print (info->stream, "0x%x",
-		     (int)(EXTRACT_RVC_IMM (l) & (RISCV_BIGIMM_REACH-1)));
+		     (int)(EXTRACT_CITYPE_IMM (l) & (RISCV_BIGIMM_REACH-1)));
 	      break;
 	    case '>':
-	      print (info->stream, "0x%x", (int)EXTRACT_RVC_IMM (l) & 0x3f);
+	      print (info->stream, "0x%x", (int)EXTRACT_CITYPE_IMM (l) & 0x3f);
 	      break;
 	    case '<':
-	      print (info->stream, "0x%x", (int)EXTRACT_RVC_IMM (l) & 0x1f);
+	      print (info->stream, "0x%x", (int)EXTRACT_CITYPE_IMM (l) & 0x1f);
 	      break;
-	    case 'T': /* floating-point RS2 */
+	    case 'T': /* Floating-point RS2.  */
 	      print (info->stream, "%s",
 		     riscv_fpr_names[EXTRACT_OPERAND (CRS2, l)]);
 	      break;
-	    case 'D': /* floating-point RS2 x8-x15 */
+	    case 'D': /* Floating-point RS2 x8-x15.  */
 	      print (info->stream, "%s",
 		     riscv_fpr_names[EXTRACT_OPERAND (CRS2S, l) + 8]);
 	      break;
@@ -219,7 +270,7 @@ print_insn_args (const char *d, insn_t l, bfd_vma pc, disassemble_info *info)
 	  break;
 
 	case '0':
-	  /* Only print constant 0 if it is the last argument */
+	  /* Only print constant 0 if it is the last argument.  */
 	  if (!d[1])
 	    print (info->stream, "0");
 	  break;
@@ -272,12 +323,12 @@ print_insn_args (const char *d, insn_t l, bfd_vma pc, disassemble_info *info)
 	  break;
 
 	case 'a':
-	  info->target = EXTRACT_UJTYPE_IMM (l) + pc;
+	  info->target = EXTRACT_JTYPE_IMM (l) + pc;
 	  (*info->print_address_func) (info->target, info);
 	  break;
 
 	case 'p':
-	  info->target = EXTRACT_SBTYPE_IMM (l) + pc;
+	  info->target = EXTRACT_BTYPE_IMM (l) + pc;
 	  (*info->print_address_func) (info->target, info);
 	  break;
 
@@ -287,7 +338,7 @@ print_insn_args (const char *d, insn_t l, bfd_vma pc, disassemble_info *info)
 	  else if ((l & MASK_LUI) == MATCH_LUI)
 	    pd->hi_addr[rd] = EXTRACT_UTYPE_IMM (l);
 	  else if ((l & MASK_C_LUI) == MATCH_C_LUI)
-	    pd->hi_addr[rd] = EXTRACT_RVC_LUI_IMM (l);
+	    pd->hi_addr[rd] = EXTRACT_CITYPE_LUI_IMM (l);
 	  print (info->stream, "%s", riscv_gpr_names[rd]);
 	  break;
 
@@ -322,16 +373,35 @@ print_insn_args (const char *d, insn_t l, bfd_vma pc, disassemble_info *info)
 
 	case 'E':
 	  {
-	    const char* csr_name = NULL;
+	    static const char *riscv_csr_hash[4096]; /* Total 2^12 CSRs.  */
+	    static bool init_csr = false;
 	    unsigned int csr = EXTRACT_OPERAND (CSR, l);
-	    switch (csr)
+
+	    if (!init_csr)
 	      {
-#define DECLARE_CSR(name, num) case num: csr_name = #name; break;
+		unsigned int i;
+		for (i = 0; i < 4096; i++)
+		  riscv_csr_hash[i] = NULL;
+
+		/* Set to the newest privileged version.  */
+		if (default_priv_spec == PRIV_SPEC_CLASS_NONE)
+		  default_priv_spec = PRIV_SPEC_CLASS_DRAFT - 1;
+
+#define DECLARE_CSR(name, num, class, define_version, abort_version)	\
+		if (riscv_csr_hash[num] == NULL 			\
+		    && ((define_version == PRIV_SPEC_CLASS_NONE 	\
+			 && abort_version == PRIV_SPEC_CLASS_NONE)	\
+			|| (default_priv_spec >= define_version 	\
+			    && default_priv_spec < abort_version)))	\
+		  riscv_csr_hash[num] = #name;
+#define DECLARE_CSR_ALIAS(name, num, class, define_version, abort_version) \
+		DECLARE_CSR (name, num, class, define_version, abort_version)
 #include "opcode/riscv-opc.h"
 #undef DECLARE_CSR
 	      }
-	    if (csr_name)
-	      print (info->stream, "%s", csr_name);
+
+	    if (riscv_csr_hash[csr] != NULL)
+	      print (info->stream, "%s", riscv_csr_hash[csr]);
 	    else
 	      print (info->stream, "0x%x", csr);
 	    break;
@@ -359,7 +429,7 @@ static int
 riscv_disassemble_insn (bfd_vma memaddr, insn_t word, disassemble_info *info)
 {
   const struct riscv_opcode *op;
-  static bfd_boolean init = 0;
+  static bool init = 0;
   static const struct riscv_opcode *riscv_hash[OP_MASK_OP + 1];
   struct riscv_private_data *pd;
   int insnlen;
@@ -395,9 +465,13 @@ riscv_disassemble_insn (bfd_vma memaddr, insn_t word, disassemble_info *info)
 
   insnlen = riscv_insn_length (word);
 
+  /* RISC-V instructions are always little-endian.  */
+  info->endian_code = BFD_ENDIAN_LITTLE;
+
   info->bytes_per_chunk = insnlen % 4 == 0 ? 4 : 2;
   info->bytes_per_line = 8;
-  info->display_endian = info->endian;
+  /* We don't support constant pools, so this must be code.  */
+  info->display_endian = info->endian_code;
   info->insn_info_valid = 1;
   info->branch_delay_insns = 0;
   info->data_size = 0;
@@ -518,17 +592,38 @@ print_insn_riscv (bfd_vma memaddr, struct disassemble_info *info)
   return riscv_disassemble_insn (memaddr, insn, info);
 }
 
+disassembler_ftype
+riscv_get_disassembler (bfd *abfd)
+{
+  if (abfd)
+    {
+      const char *sec_name = get_elf_backend_data (abfd)->obj_attrs_section;
+      if (bfd_get_section_by_name (abfd, sec_name) != NULL)
+        {
+	  obj_attribute *attr = elf_known_obj_attributes_proc (abfd);
+	  unsigned int Tag_a = Tag_RISCV_priv_spec;
+	  unsigned int Tag_b = Tag_RISCV_priv_spec_minor;
+	  unsigned int Tag_c = Tag_RISCV_priv_spec_revision;
+	  riscv_get_priv_spec_class_from_numbers (attr[Tag_a].i,
+						  attr[Tag_b].i,
+						  attr[Tag_c].i,
+						  &default_priv_spec);
+        }
+    }
+   return print_insn_riscv;
+}
+
 /* Prevent use of the fake labels that are generated as part of the DWARF
    and for relaxable relocations in the assembler.  */
 
-bfd_boolean
+bool
 riscv_symbol_is_valid (asymbol * sym,
                        struct disassemble_info * info ATTRIBUTE_UNUSED)
 {
   const char * name;
 
   if (sym == NULL)
-    return FALSE;
+    return false;
 
   name = bfd_asymbol_name (sym);
 
@@ -543,11 +638,15 @@ The following RISC-V-specific disassembler options are supported for use\n\
 with the -M switch (multiple options should be separated by commas):\n"));
 
   fprintf (stream, _("\n\
-  numeric       Print numeric register names, rather than ABI names.\n"));
+  numeric         Print numeric register names, rather than ABI names.\n"));
 
   fprintf (stream, _("\n\
-  no-aliases    Disassemble only into canonical instructions, rather\n\
-                than into pseudoinstructions.\n"));
+  no-aliases      Disassemble only into canonical instructions, rather\n\
+                  than into pseudoinstructions.\n"));
+
+  fprintf (stream, _("\n\
+  priv-spec=PRIV  Print the CSR according to the chosen privilege spec\n\
+                  (1.9, 1.9.1, 1.10, 1.11).\n"));
 
   fprintf (stream, _("\n"));
 }

@@ -1,4 +1,4 @@
-dnl Copyright (C) 1996-2019 Free Software Foundation, Inc.
+dnl Copyright (C) 1996-2021 Free Software Foundation, Inc.
 dnl
 dnl This program is free software; you can redistribute it and/or modify
 dnl it under the terms of the GNU General Public License as published by
@@ -15,9 +15,10 @@ dnl along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(Makefile.in)
-sinclude(../common/acinclude.m4)
+AC_CONFIG_MACRO_DIRS([../m4 ../.. ../../config])
 
 SIM_AC_COMMON
+SIM_AC_OPTION_WARNINGS(no)
 
 # In the Cygwin environment, we need some additional flags.
 AC_CACHE_CHECK([for cygwin], sim_cv_os_cygwin,
@@ -37,7 +38,7 @@ AC_SUBST(TERMCAP)
 # We prefer the in-tree readline.  Top-level dependencies make sure
 # src/readline (if it's there) is configured before src/sim.
 if test -r ../../readline/Makefile; then
-  READLINE=../../readline/libreadline.a
+  READLINE=../../readline/readline/libreadline.a
 else
   AC_CHECK_LIB(readline, readline, READLINE=-lreadline,
 	       AC_ERROR([the required "readline" library is missing]), $TERMCAP)

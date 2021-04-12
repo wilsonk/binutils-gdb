@@ -1,6 +1,6 @@
 /* rx.c --- opcode semantics for stand-alone RX simulator.
 
-Copyright (C) 2008-2019 Free Software Foundation, Inc.
+Copyright (C) 2008-2021 Free Software Foundation, Inc.
 Contributed by Red Hat, Inc.
 
 This file is part of the GNU simulators.
@@ -682,7 +682,7 @@ pushpc(int val)
 }
 
 static int
-pop()
+pop (void)
 {
   int rv;
   int rsp = get_reg (sp);
@@ -693,7 +693,7 @@ pop()
 }
 
 static int
-poppc()
+poppc (void)
 {
   int rv;
   int rsp = get_reg (sp);
@@ -931,7 +931,7 @@ op_is_memory (const RX_Opcode_Decoded *rd, int i)
 #define DO_RETURN(x) { longjmp (decode_jmp_buf, x); }
 
 int
-decode_opcode ()
+decode_opcode (void)
 {
   unsigned int uma=0, umb=0;
   int ma=0, mb=0;

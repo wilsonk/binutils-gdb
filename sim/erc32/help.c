@@ -1,6 +1,6 @@
 /* This file is part of SIS (SPARC instruction simulator)
 
-   Copyright (C) 1995-2019 Free Software Foundation, Inc.
+   Copyright (C) 1995-2021 Free Software Foundation, Inc.
    Contributed by Jiri Gaisler, European Space Agency
 
    This program is free software; you can redistribute it and/or modify
@@ -21,7 +21,7 @@
 #include "sis.h"
 
 void
-usage()
+usage(void)
 {
 
     printf("usage: sis [-uart1 uart_device1] [-uart2 uart_device2]\n");
@@ -30,7 +30,7 @@ usage()
 }
 
 void
-gen_help()
+gen_help(void)
 {
 
   printf("\n batch <file>          execute a batch file of SIS commands\n");

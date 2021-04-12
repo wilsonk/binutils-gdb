@@ -1,5 +1,5 @@
 /* simple.c -- BFD simple client routines
-   Copyright (C) 2002-2019 Free Software Foundation, Inc.
+   Copyright (C) 2002-2021 Free Software Foundation, Inc.
    Contributed by MontaVista Software, Inc.
 
    This file is part of BFD, the Binary File Descriptor library.
@@ -40,7 +40,7 @@ simple_dummy_undefined_symbol (struct bfd_link_info *link_info ATTRIBUTE_UNUSED,
 			       bfd *abfd ATTRIBUTE_UNUSED,
 			       asection *section ATTRIBUTE_UNUSED,
 			       bfd_vma address ATTRIBUTE_UNUSED,
-			       bfd_boolean fatal ATTRIBUTE_UNUSED)
+			       bool fatal ATTRIBUTE_UNUSED)
 {
 }
 
@@ -242,8 +242,7 @@ bfd_simple_get_relocated_section_contents (bfd *abfd,
 				   * saved_offsets.section_count);
   if (saved_offsets.sections == NULL)
     {
-      if (data)
-	free (data);
+      free (data);
       _bfd_generic_link_hash_table_free (abfd);
       abfd->link.next = link_next;
       return NULL;
@@ -267,7 +266,7 @@ bfd_simple_get_relocated_section_contents (bfd *abfd,
 						 outbuf,
 						 0,
 						 symbol_table);
-  if (contents == NULL && data != NULL)
+  if (contents == NULL)
     free (data);
 
   bfd_map_over_sections (abfd, simple_restore_output_info, &saved_offsets);

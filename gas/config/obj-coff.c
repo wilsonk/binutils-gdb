@@ -1,5 +1,5 @@
 /* coff object file format
-   Copyright (C) 1989-2019 Free Software Foundation, Inc.
+   Copyright (C) 1989-2021 Free Software Foundation, Inc.
 
    This file is part of GAS.
 
@@ -33,7 +33,6 @@
 #endif
 
 #define streq(a,b)     (strcmp ((a), (b)) == 0)
-#define strneq(a,b,n)  (strncmp ((a), (b), (n)) == 0)
 
 /* I think this is probably always correct.  */
 #ifndef KEEP_RELOC_INFO
@@ -117,28 +116,24 @@ stack_pop (stack *st)
 
 /* Maintain a list of the tagnames of the structures.  */
 
-static struct hash_control *tag_hash;
+static htab_t tag_hash;
 
 static void
 tag_init (void)
 {
-  tag_hash = hash_new ();
+  tag_hash = str_htab_create ();
 }
 
 static void
 tag_insert (const char *name, symbolS *symbolP)
 {
-  const char *error_string;
-
-  if ((error_string = hash_jam (tag_hash, name, (char *) symbolP)))
-    as_fatal (_("Inserting \"%s\" into structure table failed: %s"),
-	      name, error_string);
+  str_hash_insert (tag_hash, name, symbolP, 1);
 }
 
 static symbolS *
 tag_find (char *name)
 {
-  return (symbolS *) hash_find (tag_hash, name);
+  return (symbolS *) str_hash_find (tag_hash, name);
 }
 
 static symbolS *
@@ -148,8 +143,7 @@ tag_find_or_make (char *name)
 
   if ((symbolP = tag_find (name)) == NULL)
     {
-      symbolP = symbol_new (name, undefined_section,
-			    0, &zero_address_frag);
+      symbolP = symbol_new (name, undefined_section, &zero_address_frag, 0);
 
       tag_insert (S_GET_NAME (symbolP), symbolP);
       symbol_table_insert (symbolP);
@@ -205,13 +199,12 @@ obj_coff_common_parse (int ignore ATTRIBUTE_UNUSED, symbolS *symbolP, addressT s
       char numbuff[20];
 
       sec = subseg_new (".drectve", 0);
-      oldflags = bfd_get_section_flags (stdoutput, sec);
+      oldflags = bfd_section_flags (sec);
       if (oldflags == SEC_NO_FLAGS)
 	{
-	  if (!bfd_set_section_flags (stdoutput, sec,
-		TC_COFF_SECTION_DEFAULT_ATTRIBUTES))
+	  if (!bfd_set_section_flags (sec, TC_COFF_SECTION_DEFAULT_ATTRIBUTES))
 	    as_warn (_("error setting flags for \"%s\": %s"),
-		bfd_section_name (stdoutput, sec),
+		bfd_section_name (sec),
 		bfd_errmsg (bfd_get_error ()));
 	}
 
@@ -329,7 +322,7 @@ c_dot_file_symbol (const char *filename, int appfile ATTRIBUTE_UNUSED)
 
   /* BFD converts filename to a .file symbol with an aux entry.  It
      also handles chaining.  */
-  symbolP = symbol_new (filename, bfd_abs_section_ptr, 0, &zero_address_frag);
+  symbolP = symbol_new (filename, bfd_abs_section_ptr, &zero_address_frag, 0);
 
   S_SET_STORAGE_CLASS (symbolP, C_FILE);
   S_SET_NUMBER_AUXILIARY (symbolP, 1);
@@ -380,7 +373,7 @@ coff_obj_symbol_new_hook (symbolS *symbolP)
 
   memset (s, 0, sz);
   coffsymbol (symbol_get_bfdsym (symbolP))->native = (combined_entry_type *) s;
-  coffsymbol (symbol_get_bfdsym (symbolP))->native->is_sym = TRUE;
+  coffsymbol (symbol_get_bfdsym (symbolP))->native->is_sym = true;
 
   S_SET_DATA_TYPE (symbolP, T_NULL);
   S_SET_STORAGE_CLASS (symbolP, 0);
@@ -554,7 +547,7 @@ obj_coff_ident (int ignore ATTRIBUTE_UNUSED)
        that shouldn't be loaded into memory, which requires linker
        changes...  For now, until proven otherwise, use .rdata.  */
     sec = subseg_new (".rdata$zzz", 0);
-    bfd_set_section_flags (stdoutput, sec,
+    bfd_set_section_flags (sec,
 			   ((SEC_ALLOC | SEC_LOAD | SEC_READONLY | SEC_DATA)
 			    & bfd_applicable_section_flags (stdoutput)));
   }
@@ -774,8 +767,7 @@ obj_coff_endef (int ignore ATTRIBUTE_UNUSED)
 
   if (S_GET_STORAGE_CLASS (def_symbol_in_progress) == C_EFCN
       || S_GET_STORAGE_CLASS (def_symbol_in_progress) == C_LABEL
-      || (streq (bfd_get_section_name (stdoutput,
-				       S_GET_SEGMENT (def_symbol_in_progress)),
+      || (streq (bfd_section_name (S_GET_SEGMENT (def_symbol_in_progress)),
 		 "*DEBUG*")
 	  && !SF_GET_TAG (def_symbol_in_progress))
       || S_GET_SEGMENT (def_symbol_in_progress) == absolute_section
@@ -1065,7 +1057,7 @@ obj_coff_val (int ignore ATTRIBUTE_UNUSED)
 static int
 weak_is_altname (const char * name)
 {
-  return strneq (name, weak_altprefix, sizeof (weak_altprefix) - 1);
+  return startswith (name, weak_altprefix);
 }
 
 /* Return the name of the alternate symbol
@@ -1480,7 +1472,7 @@ coff_adjust_section_syms (bfd *abfd ATTRIBUTE_UNUSED,
 	fixp = fixp->fx_next;
       }
   }
-  if (bfd_get_section_size (sec) == 0
+  if (bfd_section_size (sec) == 0
       && nrelocs == 0
       && nlnno == 0
       && sec != text_section
@@ -1534,6 +1526,7 @@ obj_coff_section (int ignore ATTRIBUTE_UNUSED)
   unsigned int exp;
   flagword flags, oldflags;
   asection *sec;
+  bool is_bss = false;
 
   if (flag_mri)
     {
@@ -1583,6 +1576,7 @@ obj_coff_section (int ignore ATTRIBUTE_UNUSED)
 		  /* Uninitialised data section.  */
 		  flags |= SEC_ALLOC;
 		  flags &=~ SEC_LOAD;
+		  is_bss = true;
 		  break;
 
 		case 'n':
@@ -1654,10 +1648,13 @@ obj_coff_section (int ignore ATTRIBUTE_UNUSED)
 
   sec = subseg_new (name, (subsegT) exp);
 
+  if (is_bss)
+    seg_info (sec)->bss = 1;
+
   if (alignment >= 0)
     sec->alignment_power = alignment;
 
-  oldflags = bfd_get_section_flags (stdoutput, sec);
+  oldflags = bfd_section_flags (sec);
   if (oldflags == SEC_NO_FLAGS)
     {
       /* Set section flags for a new section just created by subseg_new.
@@ -1669,13 +1666,13 @@ obj_coff_section (int ignore ATTRIBUTE_UNUSED)
       /* Add SEC_LINK_ONCE and SEC_LINK_DUPLICATES_DISCARD to .gnu.linkonce
          sections so adjust_reloc_syms in write.c will correctly handle
          relocs which refer to non-local symbols in these sections.  */
-      if (strneq (name, ".gnu.linkonce", sizeof (".gnu.linkonce") - 1))
+      if (startswith (name, ".gnu.linkonce"))
 	flags |= SEC_LINK_ONCE | SEC_LINK_DUPLICATES_DISCARD;
 #endif
 
-      if (! bfd_set_section_flags (stdoutput, sec, flags))
+      if (!bfd_set_section_flags (sec, flags))
 	as_warn (_("error setting flags for \"%s\": %s"),
-		 bfd_section_name (stdoutput, sec),
+		 bfd_section_name (sec),
 		 bfd_errmsg (bfd_get_error ()));
     }
   else if (flags != SEC_NO_FLAGS)
@@ -1713,7 +1710,7 @@ coff_frob_section (segT sec)
      supposedly because standard COFF has no other way of encoding alignment
      for sections.  If your COFF flavor has a different way of encoding
      section alignment, then skip this step, as TICOFF does.  */
-  bfd_vma size = bfd_get_section_size (sec);
+  bfd_vma size = bfd_section_size (sec);
 #if !defined(TICOFF)
   bfd_vma align_power = (bfd_vma) sec->alignment_power + OCTETS_PER_BYTE_POWER;
   bfd_vma mask = ((bfd_vma) 1 << align_power) - 1;
@@ -1724,7 +1721,7 @@ coff_frob_section (segT sec)
       fragS *last;
 
       new_size = (size + mask) & ~mask;
-      bfd_set_section_size (stdoutput, sec, new_size);
+      bfd_set_section_size (sec, new_size);
 
       /* If the size had to be rounded up, add some padding in
          the last non-empty frag.  */
@@ -1751,7 +1748,7 @@ coff_frob_section (segT sec)
       unsigned char sclass = C_STAT;
 
 #ifdef OBJ_XCOFF
-      if (bfd_get_section_flags (stdoutput, sec) & SEC_DEBUGGING)
+      if (bfd_section_flags (sec) & SEC_DEBUGGING)
         sclass = C_DWARF;
 #endif
       S_SET_STORAGE_CLASS (secsym, sclass);
@@ -1772,9 +1769,9 @@ coff_frob_section (segT sec)
   strsec = sec;
   sec = subseg_get (STAB_SECTION_NAME, 0);
   /* size is already rounded up, since other section will be listed first */
-  size = bfd_get_section_size (strsec);
+  size = bfd_section_size (strsec);
 
-  n_entries = bfd_get_section_size (sec) / 12 - 1;
+  n_entries = bfd_section_size (sec) / 12 - 1;
 
   /* Find first non-empty frag.  It should be large enough.  */
   fragp = seg_info (sec)->frchainP->frch_root;
@@ -1802,7 +1799,7 @@ obj_coff_init_stab_section (segT seg)
   memset (p, 0, 12);
   file = as_where ((unsigned int *) NULL);
   stabstr_name = concat (seg->name, "str", (char *) NULL);
-  stroff = get_stab_string_offset (file, stabstr_name, TRUE);
+  stroff = get_stab_string_offset (file, stabstr_name, true);
   know (stroff == 1);
   md_number_to_chars (p, stroff, 4);
 }

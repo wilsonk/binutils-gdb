@@ -1,7 +1,7 @@
 /* Main simulator entry points specific to Lattice Mico32.
    Contributed by Jon Beniston <jon@beniston.com>
    
-   Copyright (C) 2009-2019 Free Software Foundation, Inc.
+   Copyright (C) 2009-2021 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -23,9 +23,7 @@
 #include "libiberty.h"
 #include "bfd.h"
 
-#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
-#endif
 
 /* Cover function of sim_state_free to free the cpu buffers as well.  */
 
@@ -50,21 +48,18 @@ find_base (bfd *prog_bfd)
   found = 0;
   for (s = prog_bfd->sections; s; s = s->next)
     {
-      if ((strcmp (bfd_get_section_name (prog_bfd, s), ".boot") == 0)
-	  || (strcmp (bfd_get_section_name (prog_bfd, s), ".text") == 0)
-	  || (strcmp (bfd_get_section_name (prog_bfd, s), ".data") == 0)
-	  || (strcmp (bfd_get_section_name (prog_bfd, s), ".bss") == 0))
+      if ((strcmp (bfd_section_name (s), ".boot") == 0)
+	  || (strcmp (bfd_section_name (s), ".text") == 0)
+	  || (strcmp (bfd_section_name (s), ".data") == 0)
+	  || (strcmp (bfd_section_name (s), ".bss") == 0))
 	{
 	  if (!found)
 	    {
-	      base = bfd_get_section_vma (prog_bfd, s);
+	      base = bfd_section_vma (s);
 	      found = 1;
 	    }
 	  else
-	    base =
-	      bfd_get_section_vma (prog_bfd,
-				   s) < base ? bfd_get_section_vma (prog_bfd,
-								    s) : base;
+	    base = bfd_section_vma (s) < base ? bfd_section_vma (s) : base;
 	}
     }
   return base & ~(0xffffUL);
@@ -85,11 +80,8 @@ find_limit (SIM_DESC sd)
 /* Create an instance of the simulator.  */
 
 SIM_DESC
-sim_open (kind, callback, abfd, argv)
-     SIM_OPEN_KIND kind;
-     host_callback *callback;
-     struct bfd *abfd;
-     char * const *argv;
+sim_open (SIM_OPEN_KIND kind, host_callback *callback, struct bfd *abfd,
+	  char * const *argv)
 {
   SIM_DESC sd = sim_state_alloc (kind, callback);
   char c;
@@ -195,11 +187,8 @@ sim_open (kind, callback, abfd, argv)
 }
 
 SIM_RC
-sim_create_inferior (sd, abfd, argv, envp)
-     SIM_DESC sd;
-     struct bfd *abfd;
-     char * const *argv;
-     char * const *envp;
+sim_create_inferior (SIM_DESC sd, struct bfd *abfd, char * const *argv,
+		     char * const *envp)
 {
   SIM_CPU *current_cpu = STATE_CPU (sd, 0);
   SIM_ADDR addr;

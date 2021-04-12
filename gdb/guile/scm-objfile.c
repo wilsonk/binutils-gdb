@@ -1,6 +1,6 @@
 /* Scheme interface to objfiles.
 
-   Copyright (C) 2008-2019 Free Software Foundation, Inc.
+   Copyright (C) 2008-2021 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -25,10 +25,9 @@
 #include "language.h"
 #include "guile-internal.h"
 
-/* The <gdb:objfile> smob.
-   The typedef for this struct is in guile-internal.h.  */
+/* The <gdb:objfile> smob.  */
 
-struct _objfile_smob
+struct objfile_smob
 {
   /* This always appears first.  */
   gdb_smob base;
@@ -346,7 +345,7 @@ gdbscm_execute_objfile_script (const struct extension_language_defn *extlang,
   ofscm_current_objfile = NULL;
 }
 
-/* (current-objfile) -> <gdb:obfjile>
+/* (current-objfile) -> <gdb:objfile>
    Return the current objfile, or #f if there isn't one.
    Ideally this would be named ofscm_current_objfile, but that name is
    taken by the variable recording the current objfile.  */
@@ -366,17 +365,16 @@ gdbscm_get_current_objfile (void)
 static SCM
 gdbscm_objfiles (void)
 {
-  struct objfile *objf;
   SCM result;
 
   result = SCM_EOL;
 
-  ALL_OBJFILES (objf)
-  {
-    SCM item = ofscm_scm_from_objfile (objf);
+  for (objfile *objf : current_program_space->objfiles ())
+    {
+      SCM item = ofscm_scm_from_objfile (objf);
 
-    result = scm_cons (item, result);
-  }
+      result = scm_cons (item, result);
+    }
 
   return scm_reverse_x (result, SCM_EOL);
 }

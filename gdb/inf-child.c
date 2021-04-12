@@ -1,6 +1,6 @@
 /* Base/prototype target for default child (native) targets.
 
-   Copyright (C) 1988-2019 Free Software Foundation, Inc.
+   Copyright (C) 1988-2021 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -30,10 +30,10 @@
 #include "inferior.h"
 #include <sys/stat.h>
 #include "inf-child.h"
-#include "fileio.h"
-#include "agent.h"
-#include "gdb_wait.h"
-#include "filestuff.h"
+#include "gdbsupport/fileio.h"
+#include "gdbsupport/agent.h"
+#include "gdbsupport/gdb_wait.h"
+#include "gdbsupport/filestuff.h"
 
 #include <sys/types.h>
 #include <fcntl.h>
@@ -166,7 +166,7 @@ inf_child_open_target (const char *arg, int from_tty)
   gdb_assert (dynamic_cast<inf_child_target *> (target) != NULL);
 
   target_preopen (from_tty);
-  push_target (target);
+  current_inferior ()->push_target (target);
   inf_child_explicitly_opened = 1;
   if (from_tty)
     printf_filtered ("Done.  Use the \"run\" command to start a process.\n");
@@ -206,8 +206,8 @@ inf_child_target::mourn_inferior ()
 void
 inf_child_target::maybe_unpush_target ()
 {
-  if (!inf_child_explicitly_opened && !have_inferiors ())
-    unpush_target (this);
+  if (!inf_child_explicitly_opened)
+    current_inferior ()->unpush_target (this);
 }
 
 void

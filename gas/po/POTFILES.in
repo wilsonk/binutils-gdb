@@ -12,6 +12,7 @@ compress-debug.h
 cond.c
 config/atof-ieee.c
 config/atof-vax.c
+config/bfin-lex-wrapper.c
 config/e-crisaout.c
 config/e-criself.c
 config/e-i386aout.c
@@ -48,6 +49,8 @@ config/tc-avr.c
 config/tc-avr.h
 config/tc-bfin.c
 config/tc-bfin.h
+config/tc-bpf.c
+config/tc-bpf.h
 config/tc-cr16.c
 config/tc-cr16.h
 config/tc-cris.c
@@ -206,7 +209,6 @@ config/te-pc532mach.h
 config/te-pe.h
 config/te-solaris.h
 config/te-svr4.h
-config/te-symbian.h
 config/te-tmips.h
 config/te-vms.c
 config/te-vxworks.h

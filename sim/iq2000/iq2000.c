@@ -1,5 +1,5 @@
 /* IQ2000 simulator support code
-   Copyright (C) 2000-2019 Free Software Foundation, Inc.
+   Copyright (C) 2000-2021 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
    This file is part of the GNU simulators.
@@ -23,6 +23,7 @@
 #include "sim-main.h"
 #include "cgen-mem.h"
 #include "cgen-ops.h"
+#include <stdlib.h>
 
 enum
 {
@@ -56,10 +57,7 @@ enum libgloss_syscall
 
 /* Read a null terminated string from memory, return in a buffer */
 static char *
-fetch_str (current_cpu, pc, addr)
-     SIM_CPU *current_cpu;
-     PCADDR pc;
-     DI addr;
+fetch_str (SIM_CPU *current_cpu, PCADDR pc, DI addr)
 {
   char *buf;
   int nr = 0;
